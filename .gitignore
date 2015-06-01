@@ -1,0 +1,7 @@
+_Binx64/*
+_Inter/*
+WiredTigerTest/bin/*
+WiredTigerTest/obj/*
+WiredTiger.opensdf
+ipch/*
+WiredTiger.sdf

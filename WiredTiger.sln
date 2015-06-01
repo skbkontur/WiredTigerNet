@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30723.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WiredTigerNet", "WiredTigerNet\WiredTigerNet.vcxproj", "{A80D8BF2-01B5-4B3D-AA35-C372B8CC7899}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WiredTigerTest", "WiredTigerTest\WiredTigerTest.csproj", "{A0AD3655-BF44-40E2-B0D7-F2BDA24DE86A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A80D8BF2-01B5-4B3D-AA35-C372B8CC7899}.Debug|x64.ActiveCfg = Debug|x64
+		{A80D8BF2-01B5-4B3D-AA35-C372B8CC7899}.Debug|x64.Build.0 = Debug|x64
+		{A80D8BF2-01B5-4B3D-AA35-C372B8CC7899}.Release|x64.ActiveCfg = Release|x64
+		{A80D8BF2-01B5-4B3D-AA35-C372B8CC7899}.Release|x64.Build.0 = Release|x64
+		{A0AD3655-BF44-40E2-B0D7-F2BDA24DE86A}.Debug|x64.ActiveCfg = Debug|x64
+		{A0AD3655-BF44-40E2-B0D7-F2BDA24DE86A}.Debug|x64.Build.0 = Debug|x64
+		{A0AD3655-BF44-40E2-B0D7-F2BDA24DE86A}.Release|x64.ActiveCfg = Release|x64
+		{A0AD3655-BF44-40E2-B0D7-F2BDA24DE86A}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
