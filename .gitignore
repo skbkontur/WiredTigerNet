@@ -5,3 +5,5 @@ WiredTigerTest/obj/*
 WiredTiger.opensdf
 ipch/*
 WiredTiger.sdf
+bin/*
+WiredTiger.v12.suo

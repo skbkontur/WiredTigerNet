@@ -107,21 +107,15 @@ namespace WiredTigerNet {
 	public ref class Cursor  : public CursorBase
 	{
 	internal:
-		Cursor(WT_CURSOR* cursor) : CursorBase(cursor)
-		{
-			/*if (strcmp(cursor->key_format, "u") != 0 || strcmp(cursor->value_format, "u") != 0)
-			{
-				throw gcnew Exception("Key or Value Format incompatible with this cursor!");
-			}*/
+		Cursor(WT_CURSOR* cursor) : CursorBase(cursor) {
 		}
 	public:
 		long GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive) {
 			pin_ptr<Byte> leftPtr;
 			int leftSize;
-			if (left != nullptr) {
+			if (left != nullptr && left->Length > 0) {
 				leftSize = left->Length;
-				if (leftSize > 0)
-					leftPtr = &left[0];
+				leftPtr = &left[0];
 			}
 			else {
 				leftSize = 0;
@@ -130,10 +124,9 @@ namespace WiredTigerNet {
 
 			pin_ptr<Byte> rightPtr;
 			int rightSize;
-			if (right != nullptr) {
+			if (right != nullptr && right->Length) {
 				rightSize = right->Length;
-				if (rightSize > 0)
-					rightPtr = &right[0];
+				rightPtr = &right[0];
 			}
 			else {
 				rightSize = 0;
@@ -232,57 +225,6 @@ namespace WiredTigerNet {
 			_cursor->set_value(_cursor);
 		}
 	};
-
-	public ref class CursorLong : public CursorBase
-	{
-	internal:
-		CursorLong(WT_CURSOR* cursor) : CursorBase(cursor){
-			if (strcmp(cursor->key_format, "q") != 0 || strcmp(cursor->value_format, "u") != 0)
-			{
-				throw gcnew System::Exception("Key or Value Format incompatible with this cursor!");
-			}
-		}
-	public:
-		System::Int64 GetKey()
-		{
-			int64_t key;
-			int r = _cursor->get_key(_cursor, &key);
-			if (r != 0) throw gcnew WiredException(r);
-			return key;
-		}
-		array<Byte>^ GetValue()
-		{
-			WT_ITEM item = { 0 };
-			int r = _cursor->get_value(_cursor, &item);
-			if (r != 0) throw gcnew WiredException(r);
-
-			array<Byte>^ buffer = gcnew array<Byte>((int)item.size);
-			Marshal::Copy((System::IntPtr)(void*)item.data, buffer, 0, buffer->Length);
-			return buffer;
-		}
-
-		void SetKey(System::Int64 key)
-		{
-			int64_t vkey = key;
-			_cursor->set_key(_cursor, vkey);
-		}
-		void SetValue(System::IntPtr data, int length)
-		{
-			WT_ITEM item = { 0 };
-			item.data = (void*)data;
-			item.size = length;
-			_cursor->set_value(_cursor, &item);
-		}
-		void SetValue(array<Byte>^ value)
-		{
-			pin_ptr<Byte> pvalue = &value[0];
-			WT_ITEM item = { 0 };
-			item.data = (void*)pvalue;
-			item.size = value->Length;
-			_cursor->set_value(_cursor, &item);
-		}
-	};
-
 
 	public ref class Session : public System::IDisposable
 	{
@@ -395,28 +337,6 @@ namespace WiredTigerNet {
 			if (r != 0) throw gcnew WiredException(r);
 
 			return gcnew Cursor(cursor);
-		}
-		CursorLong^ OpenCursorLK(System::String^ name)
-		{
-			WT_CURSOR *cursor;
-			const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-			int r = _session->open_cursor(_session, aname, NULL, NULL, &cursor);
-			Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-			if (r != 0) throw gcnew WiredException(r);
-
-			return gcnew CursorLong(cursor);
-		}
-		CursorLong^ OpenCursorLK(System::String^ name, System::String^ config)
-		{
-			WT_CURSOR *cursor;
-			const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-			const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-			int r = _session->open_cursor(_session, aname, NULL, aconfig, &cursor);
-			Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-			if (aconfig) Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-			if (r != 0) throw gcnew WiredException(r);
-
-			return gcnew CursorLong(cursor);
 		}
 	};
 

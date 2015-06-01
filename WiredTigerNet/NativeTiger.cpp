@@ -11,7 +11,7 @@ inline int min(int a, int b) {
 
 class NativeCursor {
 public:
-	NativeCursor(WT_CURSOR* cursor) :cursor_(cursor) {
+	NativeCursor(WT_CURSOR* cursor) :cursor_(cursor), currentKey_(nullptr) {
 	}
 
 	long GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
