@@ -1,9 +1,10 @@
-_Binx64/*
 _Inter/*
-WiredTigerTest/bin/*
-WiredTigerTest/obj/*
 WiredTiger.opensdf
 ipch/*
 WiredTiger.sdf
-bin/*
 WiredTiger.v12.suo
+**/bin/*
+**/obj/*
+**/Debug/*
+**/Release/*
+*.user
