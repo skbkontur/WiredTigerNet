@@ -22,16 +22,13 @@ namespace WiredTigerNet {
 		void Insert(array<Byte>^ key, array<Byte>^ value);
 		bool Next();
 		bool Prev();
-		void Remove();
+		void Remove(array<Byte>^ key);
 		void Reset();
-		bool Search();
-		bool SearchNear([System::Runtime::InteropServices::OutAttribute] int% result);
-		void Update();
+		bool Search(array<Byte>^ key);
+		bool SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result);
 		long GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive);
 		array<Byte>^ GetKey();
 		array<Byte>^ GetValue();
-		void SetKey(array<Byte>^ key);
-		void SetValue(array<Byte>^ value);
 	internal:
 		Cursor(WT_CURSOR* cursor);
 	private:

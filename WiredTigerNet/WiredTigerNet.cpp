@@ -9,7 +9,7 @@ using namespace WiredTigerNet;
 // WiredException
 // *************
 
-WiredException:: WiredException(int tigerError) : tigerError_(tigerError) {
+WiredException::WiredException(int tigerError) : tigerError_(tigerError) {
 	const char *err = wiredtiger_strerror(tigerError);
 	message_ = System::String::Format("WiredTiger Error {0} : [{1}]", tigerError, gcnew System::String(err));
 }
@@ -31,64 +31,61 @@ Cursor::~Cursor() {
 void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	pin_ptr<Byte> valuePtr = &value[0];
-	int r = NativeInsert(_cursor, keyPtr, key->Length, valuePtr, value->Length); 
-	if (r != 0) 
+	int r = NativeInsert(_cursor, keyPtr, key->Length, valuePtr, value->Length);
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 bool Cursor::Next() {
 	int r = _cursor->next(_cursor);
-	if (r == WT_NOTFOUND) 
+	if (r == WT_NOTFOUND)
 		return false;
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return true;
 }
 
 bool Cursor::Prev() {
 	int r = _cursor->prev(_cursor);
-	if (r == WT_NOTFOUND) 
+	if (r == WT_NOTFOUND)
 		return false;
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return true;
 }
 
-void Cursor::Remove() {
-	int r = _cursor->remove(_cursor);
-	if (r != 0) 
+void Cursor::Remove(array<Byte>^ key) {
+	pin_ptr<Byte> keyPtr = &key[0];
+	int r = NativeRemove(_cursor, keyPtr, key->Length);
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Cursor::Reset() {
 	int r = _cursor->reset(_cursor);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
-bool Cursor::Search() {
-	int r = _cursor->search(_cursor);
+bool Cursor::Search(array<Byte>^ key) {
+	pin_ptr<Byte> keyPtr = &key[0];
+	int r = NativeSearch(_cursor, keyPtr, key->Length);
 	if (r == WT_NOTFOUND) return false;
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return true;
 }
 
-bool Cursor::SearchNear([System::Runtime::InteropServices::OutAttribute] int% result) {
+bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result) {
 	int exact;
-	int r = _cursor->search_near(_cursor, &exact);
+	pin_ptr<Byte> keyPtr = &key[0];
+	int r = NativeSearchNear(_cursor, keyPtr, key->Length, &exact);
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
 		throw gcnew WiredException(r);
 	result = exact;
 	return true;
-}
-
-void Cursor::Update() {
-	int r = _cursor->update(_cursor);
-	if (r != 0) 
-		throw gcnew WiredException(r);
 }
 
 long Cursor::GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive) {
@@ -118,11 +115,14 @@ long Cursor::GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ r
 array<Byte>^ Cursor::GetKey() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_key(_cursor, &item);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
-	array<Byte>^ buffer = gcnew array<Byte>((int)item.size);
-	Marshal::Copy((System::IntPtr)(void*)item.data, buffer, 0, buffer->Length);
-	return buffer;
+	array<Byte>^ result = gcnew array<Byte>(item.size);
+	if (item.size > 0) {
+		pin_ptr<Byte> resultPtr = &result[0];
+		memcpy(resultPtr, item.data, item.size);
+	}
+	return result;
 }
 
 array<Byte>^ Cursor::GetValue() {
@@ -130,25 +130,12 @@ array<Byte>^ Cursor::GetValue() {
 	int r = _cursor->get_value(_cursor, &item);
 	if (r != 0)
 		throw gcnew WiredException(r);
-	array<Byte>^ buffer = gcnew array<Byte>((int)item.size);
-	Marshal::Copy((System::IntPtr)(void*)item.data, buffer, 0, buffer->Length);
-	return buffer;
-}
-
-void Cursor::SetKey(array<Byte>^ key) {
-	pin_ptr<Byte> pkey = &key[0];
-	WT_ITEM item = { 0 };
-	item.data = (void*)pkey;
-	item.size = key->Length;
-	_cursor->set_key(_cursor, &item);
-}
-
-void Cursor::SetValue(array<Byte>^ value) {
-	pin_ptr<Byte> pvalue = &value[0];
-	WT_ITEM item = { 0 };
-	item.data = (void*)pvalue;
-	item.size = value->Length;
-	_cursor->set_value(_cursor, &item);
+	array<Byte>^ result = gcnew array<Byte>(item.size);
+	if (item.size > 0) {
+		pin_ptr<Byte> resultPtr = &result[0];
+		memcpy(resultPtr, item.data, item.size);
+	}
+	return result;
 }
 
 // *************
@@ -167,43 +154,43 @@ Session::~Session() {
 
 void Session::BeginTran() {
 	int r = _session->begin_transaction(_session, NULL);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Session::BeginTran(System::String^ config) {
 	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
 	int r = _session->begin_transaction(_session, aconfig);
-	if (aconfig) 
+	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Session::CommitTran() {
 	int r = _session->commit_transaction(_session, NULL);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Session::RollbackTran() {
 	int r = _session->rollback_transaction(_session, NULL);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Session::Checkpoint() {
 	int r = _session->checkpoint(_session, NULL);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
 void Session::Checkpoint(System::String^ config) {
 	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
 	int r = _session->checkpoint(_session, aconfig);
-	if (aconfig) 
+	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
@@ -211,7 +198,7 @@ void Session::Compact(System::String^ name) {
 	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
 	int r = _session->compact(_session, aname, NULL);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
@@ -220,9 +207,9 @@ void Session::Create(System::String^ name, System::String^ config) {
 	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
 	int r = _session->create(_session, aname, aconfig);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (aconfig) 
+	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
@@ -230,7 +217,7 @@ void Session::Drop(System::String^ name) {
 	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
 	int r = _session->drop(_session, aname, NULL);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
@@ -240,7 +227,7 @@ void Session::Rename(System::String^ oldname, System::String^ newname) {
 	int r = _session->rename(_session, aoldname, anewname, NULL);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aoldname);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)anewname);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
@@ -249,7 +236,7 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
 	int r = _session->open_cursor(_session, aname, NULL, NULL, &cursor);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return gcnew Cursor(cursor);
 }
@@ -261,7 +248,7 @@ Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 	int r = _session->open_cursor(_session, aname, NULL, aconfig, &cursor);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
 	if (aconfig) Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return gcnew Cursor(cursor);
 }
@@ -285,9 +272,9 @@ Session^ Connection::OpenSession(System::String^ config) {
 	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
 	WT_SESSION *session;
 	int r = _connection->open_session(_connection, NULL, aconfig, &session);
-	if (aconfig) 
+	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 	return gcnew Session(session);
 }
@@ -303,7 +290,7 @@ System::String^ Connection::GetHome() {
 
 void Connection::AsyncFlush() {
 	int r = _connection->async_flush(_connection);
-	if (r != 0) 
+	if (r != 0)
 		throw gcnew WiredException(r);
 }
 
