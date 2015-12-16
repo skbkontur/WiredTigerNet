@@ -19,7 +19,7 @@ namespace WiredTigerNet {
 	public ref class Cursor: public System::IDisposable {
 	public:
 		virtual ~Cursor();
-		void Insert();
+		void Insert(array<Byte>^ key, array<Byte>^ value);
 		bool Next();
 		bool Prev();
 		void Remove();

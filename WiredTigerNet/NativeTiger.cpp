@@ -147,3 +147,17 @@ long NativeGetTotalCount(WT_CURSOR* cursor, Byte* left, int leftSize, bool leftI
 	NativeCursor nativeCursor(cursor);
 	return nativeCursor.GetTotalCount(left, leftSize, leftInclusive, right, rightSize, rightInclusive);
 }
+
+int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength, Byte* value, int valueLength) {
+	WT_ITEM keyItem = { 0 };
+	keyItem.data = (void*)key;
+	keyItem.size = keyLength;
+	cursor->set_key(cursor, &keyItem);
+
+	WT_ITEM valueItem = { 0 };
+	valueItem.data = (void*)value;
+	valueItem.size = valueLength;
+	cursor->set_value(cursor, &valueItem);
+
+	return cursor->insert(cursor);
+}

@@ -24,9 +24,7 @@ namespace ConsoleApplication1
 			for (var i = 0; i < 100; i++)
 			{
 				key[0] = (byte) i;
-				cursor.SetKey(key);
-				cursor.SetValue(value);
-				cursor.Insert();
+				cursor.Insert(key, value);
 			}
 			//cursor.Dispose();
 			//session.Dispose();

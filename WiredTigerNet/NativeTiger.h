@@ -13,3 +13,4 @@ private:
 };
 
 long NativeGetTotalCount(WT_CURSOR* cursor, Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
+int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength, Byte* value, int valueLength);

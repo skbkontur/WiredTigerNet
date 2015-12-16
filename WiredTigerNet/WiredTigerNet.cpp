@@ -28,8 +28,10 @@ Cursor::~Cursor() {
 	}
 }
 
-void Cursor::Insert() {
-	int r = _cursor->insert(_cursor);
+void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
+	pin_ptr<Byte> keyPtr = &key[0];
+	pin_ptr<Byte> valuePtr = &value[0];
+	int r = NativeInsert(_cursor, keyPtr, key->Length, valuePtr, value->Length); 
 	if (r != 0) 
 		throw gcnew WiredException(r);
 }
