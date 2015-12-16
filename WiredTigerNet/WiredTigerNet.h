@@ -20,6 +20,7 @@ namespace WiredTigerNet {
 	public:
 		virtual ~Cursor();
 		void Insert(array<Byte>^ key, array<Byte>^ value);
+		void InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey);
 		bool Next();
 		bool Prev();
 		void Remove(array<Byte>^ key);

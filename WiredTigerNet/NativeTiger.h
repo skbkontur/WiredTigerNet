@@ -14,6 +14,7 @@ private:
 
 long NativeGetTotalCount(WT_CURSOR* cursor, Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
 int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength, Byte* value, int valueLength);
+int NativeInsertIndex(WT_CURSOR* cursor, Byte* indexKey, int indexKeyLength, Byte* primaryKey, int primaryKeyLength);
 int NativeRemove(WT_CURSOR* cursor, Byte* key, int keyLength);
 int NativeSearch(WT_CURSOR* cursor, Byte* key, int keyLength);
 int NativeSearchNear(WT_CURSOR* cursor, Byte* key, int keyLength, int *exactp);

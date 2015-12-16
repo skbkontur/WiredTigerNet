@@ -36,6 +36,14 @@ void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 		throw gcnew WiredException(r);
 }
 
+void Cursor::InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey) {
+	pin_ptr<Byte> indexKeyPtr = &indexKey[0];
+	pin_ptr<Byte> primaryKeyPtr = &primaryKey[0];
+	int r = NativeInsertIndex(_cursor, indexKeyPtr, indexKey->Length, primaryKeyPtr, primaryKey->Length);
+	if (r != 0)
+		throw gcnew WiredException(r);
+}
+
 bool Cursor::Next() {
 	int r = _cursor->next(_cursor);
 	if (r == WT_NOTFOUND)

@@ -168,6 +168,23 @@ int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength, Byte* value, int v
 	return cursor->insert(cursor);
 }
 
+int NativeInsertIndex(WT_CURSOR* cursor, Byte* indexKey, int indexKeyLength, Byte* primaryKey, int primaryKeyLength) {
+
+	WT_ITEM indexKeyItem = { 0 };
+	indexKeyItem.data = (void*)indexKey;
+	indexKeyItem.size = indexKeyLength;
+
+	WT_ITEM primaryKeyItem = { 0 };
+	primaryKeyItem.data = (void*)primaryKey;
+	primaryKeyItem.size = primaryKeyLength;
+
+
+	cursor->set_key(cursor, &indexKeyItem, &primaryKeyItem);
+	cursor->set_value(cursor);
+
+	return cursor->insert(cursor);
+}
+
 int NativeRemove(WT_CURSOR* cursor, Byte* key, int keyLength) {
 	SetKey(cursor, key, keyLength);
 	return cursor->remove(cursor);
