@@ -4,7 +4,7 @@ namespace WiredTigerNet {
 
 	public ref class WiredException : System::Exception {
 	public:
-		WiredException(int tigerError);
+		WiredException(int tigerError, System::String^ message);
 		property int TigerError { 
 			int get() { return tigerError_; }
 		}
@@ -21,15 +21,22 @@ namespace WiredTigerNet {
 		virtual ~Cursor();
 		void Insert(array<Byte>^ key, array<Byte>^ value);
 		void InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey);
+		void Insert(array<Byte>^ key);
+		void Insert(uint32_t key, array<Byte>^ value);
 		bool Next();
 		bool Prev();
 		void Remove(array<Byte>^ key);
 		void Reset();
 		bool Search(array<Byte>^ key);
+		bool Search(uint32_t key);
 		bool SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result);
 		long GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive);
 		array<Byte>^ GetKey();
+		uint32_t GetKeyUInt32();
 		array<Byte>^ GetValue();
+		uint32_t GetValueUInt32();
+		generic <typename ValueType>
+		array<ValueType>^ Decode(array<uint32_t>^ keys);
 	internal:
 		Cursor(WT_CURSOR* cursor);
 	private:

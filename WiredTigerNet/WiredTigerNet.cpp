@@ -9,9 +9,11 @@ using namespace WiredTigerNet;
 // WiredException
 // *************
 
-WiredException::WiredException(int tigerError) : tigerError_(tigerError) {
+WiredException::WiredException(int tigerError, System::String^ message) : tigerError_(tigerError) {
 	const char *err = wiredtiger_strerror(tigerError);
-	message_ = System::String::Format("WiredTiger Error {0} : [{1}]", tigerError, gcnew System::String(err));
+	message_ = message == nullptr
+		? System::String::Format("WiredTiger Error {0} : [{1}]", tigerError, gcnew System::String(err))
+		: message;
 }
 
 // *************
@@ -33,7 +35,21 @@ void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 	pin_ptr<Byte> valuePtr = &value[0];
 	int r = NativeInsert(_cursor, keyPtr, key->Length, valuePtr, value->Length);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
+}
+
+void Cursor::Insert(array<Byte>^ key) {
+	pin_ptr<Byte> keyPtr = &key[0];
+	int r = NativeInsert(_cursor, keyPtr, key->Length);
+	if (r != 0)
+		throw gcnew WiredException(r, nullptr);
+}
+
+void Cursor::Insert(uint32_t key, array<Byte>^ value) {
+	pin_ptr<Byte> valuePtr = &value[0];
+	int r = NativeInsert(_cursor, key, valuePtr, value->Length);
+	if (r != 0)
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Cursor::InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey) {
@@ -41,7 +57,7 @@ void Cursor::InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey) {
 	pin_ptr<Byte> primaryKeyPtr = &primaryKey[0];
 	int r = NativeInsertIndex(_cursor, indexKeyPtr, indexKey->Length, primaryKeyPtr, primaryKey->Length);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 bool Cursor::Next() {
@@ -49,7 +65,7 @@ bool Cursor::Next() {
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return true;
 }
 
@@ -58,7 +74,7 @@ bool Cursor::Prev() {
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return true;
 }
 
@@ -66,22 +82,47 @@ void Cursor::Remove(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeRemove(_cursor, keyPtr, key->Length);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Cursor::Reset() {
 	int r = _cursor->reset(_cursor);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 bool Cursor::Search(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeSearch(_cursor, keyPtr, key->Length);
-	if (r == WT_NOTFOUND) return false;
+	if (r == WT_NOTFOUND) 
+		return false;
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return true;
+}
+
+bool Cursor::Search(uint32_t key) {
+	int r = NativeSearch(_cursor, key);
+	if (r == WT_NOTFOUND) 
+		return false;
+	if (r != 0)
+		throw gcnew WiredException(r, nullptr);
+	return true;
+}
+
+generic <typename ValueType>
+array<ValueType>^ Cursor::Decode(array<uint32_t>^ keys) {
+	array<ValueType>^ values = gcnew array<ValueType>(keys->Length);
+	try
+	{
+		pin_ptr<uint32_t> keysPtr = &keys[0];
+		pin_ptr<ValueType> valuesPtr = &values[0];
+		NativeDecode(_cursor, keysPtr, keys->Length, (Byte*)valuesPtr);
+	}
+	catch (const NativeTigerException& e) {
+		throw gcnew WiredException(0, gcnew System::String(e.Message().c_str()));
+	}
+	return values;
 }
 
 bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result) {
@@ -91,7 +132,7 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	result = exact;
 	return true;
 }
@@ -124,7 +165,7 @@ array<Byte>^ Cursor::GetKey() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_key(_cursor, &item);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
@@ -133,17 +174,33 @@ array<Byte>^ Cursor::GetKey() {
 	return result;
 }
 
+uint32_t Cursor::GetKeyUInt32() {
+	uint32_t key;
+	int r = _cursor->get_key(_cursor, &key);
+	if (r != 0)
+		throw gcnew WiredException(r, nullptr);
+	return key;
+}
+
 array<Byte>^ Cursor::GetValue() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_value(_cursor, &item);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
 		memcpy(resultPtr, item.data, item.size);
 	}
 	return result;
+}
+
+uint32_t Cursor::GetValueUInt32() {
+	uint32_t value;
+	int r = _cursor->get_value(_cursor, &value);
+	if (r != 0)
+		throw gcnew WiredException(r, nullptr);
+	return value;
 }
 
 // *************
@@ -163,7 +220,7 @@ Session::~Session() {
 void Session::BeginTran() {
 	int r = _session->begin_transaction(_session, NULL);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::BeginTran(System::String^ config) {
@@ -172,25 +229,25 @@ void Session::BeginTran(System::String^ config) {
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::CommitTran() {
 	int r = _session->commit_transaction(_session, NULL);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::RollbackTran() {
 	int r = _session->rollback_transaction(_session, NULL);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Checkpoint() {
 	int r = _session->checkpoint(_session, NULL);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Checkpoint(System::String^ config) {
@@ -199,7 +256,7 @@ void Session::Checkpoint(System::String^ config) {
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Compact(System::String^ name) {
@@ -207,7 +264,7 @@ void Session::Compact(System::String^ name) {
 	int r = _session->compact(_session, aname, NULL);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Create(System::String^ name, System::String^ config) {
@@ -218,7 +275,7 @@ void Session::Create(System::String^ name, System::String^ config) {
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Drop(System::String^ name) {
@@ -226,7 +283,7 @@ void Session::Drop(System::String^ name) {
 	int r = _session->drop(_session, aname, NULL);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Rename(System::String^ oldname, System::String^ newname) {
@@ -236,7 +293,7 @@ void Session::Rename(System::String^ oldname, System::String^ newname) {
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aoldname);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)anewname);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 Cursor^ Session::OpenCursor(System::String^ name) {
@@ -245,7 +302,7 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 	int r = _session->open_cursor(_session, aname, NULL, NULL, &cursor);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return gcnew Cursor(cursor);
 }
 
@@ -257,7 +314,7 @@ Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
 	if (aconfig) Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return gcnew Cursor(cursor);
 }
 
@@ -283,7 +340,7 @@ Session^ Connection::OpenSession(System::String^ config) {
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	return gcnew Session(session);
 }
 
@@ -299,7 +356,7 @@ System::String^ Connection::GetHome() {
 void Connection::AsyncFlush() {
 	int r = _connection->async_flush(_connection);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 }
 
 Connection^ Connection::Open(System::String^ home, System::String^ config) {
@@ -315,7 +372,7 @@ Connection^ Connection::Open(System::String^ home, System::String^ config) {
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
 	if (r != 0)
-		throw gcnew WiredException(r);
+		throw gcnew WiredException(r, nullptr);
 	ret->_connection = connectionp;
 	return ret;
 }
