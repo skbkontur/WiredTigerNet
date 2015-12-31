@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "NativeTiger.h"
 #include "WiredTigerNet.h"
 
