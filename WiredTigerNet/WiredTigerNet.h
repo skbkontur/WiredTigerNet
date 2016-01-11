@@ -5,10 +5,10 @@ namespace WiredTigerNet {
 	public ref class WiredException : System::Exception {
 	public:
 		WiredException(int tigerError, System::String^ message);
-		property int TigerError { 
+		property int TigerError {
 			int get() { return tigerError_; }
 		}
-		property System::String^ Message { 
+		property System::String^ Message {
 			System::String^ get() override { return message_; }
 		}
 	private:
@@ -16,7 +16,13 @@ namespace WiredTigerNet {
 		System::String^ message_;
 	};
 
-	public ref class Cursor: public System::IDisposable {
+	public interface class IEventHandler
+	{
+		void OnError(int errorCode, System::String^ errorString, System::String^ message);
+		void OnMessage(System::String^ message);
+	};
+
+	public ref class Cursor : public System::IDisposable {
 	public:
 		virtual ~Cursor();
 		void Insert(array<Byte>^ key, array<Byte>^ value);
@@ -36,7 +42,7 @@ namespace WiredTigerNet {
 		array<Byte>^ GetValue();
 		uint32_t GetValueUInt32();
 		generic <typename ValueType>
-		array<ValueType>^ Decode(array<uint32_t>^ keys);
+			array<ValueType>^ Decode(array<uint32_t>^ keys);
 	internal:
 		Cursor(WT_CURSOR* cursor);
 	private:
@@ -44,7 +50,7 @@ namespace WiredTigerNet {
 	};
 
 	public ref class Session : public System::IDisposable {
-	public:	
+	public:
 		~Session();
 		void BeginTran();
 		void BeginTran(System::String^ config);
@@ -71,9 +77,19 @@ namespace WiredTigerNet {
 		bool IsNew();
 		System::String^ GetHome();
 		void AsyncFlush();
-		static Connection^ Open(System::String^ home, System::String^ config);
+		static Connection^ Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler);
 	private:
 		WT_CONNECTION* _connection;
 		Connection();
+
+		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]
+		delegate void OnErrorDelegate(int errorCode, System::String^ errorString, System::String^ message);
+		System::Delegate^ onErrorDelegate_;
+
+		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]
+		delegate void OnMessageDelegate(System::String^ message);
+		System::Delegate^ onMessageDelegate_;
+
+		WT_EVENT_HANDLER* eventHandler_;
 	};
 }

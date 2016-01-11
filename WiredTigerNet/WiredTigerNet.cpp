@@ -330,6 +330,10 @@ Connection::~Connection() {
 		_connection->close(_connection, NULL);
 		_connection = NULL;
 	}
+	if (eventHandler_ != nullptr) {
+		delete eventHandler_;
+		eventHandler_ = nullptr;
+	}
 }
 
 Session^ Connection::OpenSession(System::String^ config) {
@@ -358,15 +362,27 @@ void Connection::AsyncFlush() {
 		throw gcnew WiredException(r, nullptr);
 }
 
-Connection^ Connection::Open(System::String^ home, System::String^ config) {
+Connection^ Connection::Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler) {
 	WT_CONNECTION *connectionp;
 
 	const char *ahome = (char*)Marshal::StringToHGlobalAnsi(home).ToPointer();
 	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
 
 	Connection^ ret = gcnew Connection();
+	if (eventHandler == nullptr)
+		ret->eventHandler_ = nullptr;
+	else {
+		ret->eventHandler_ = new WT_EVENT_HANDLER();
 
-	int r = wiredtiger_open(ahome, NULL, aconfig, &connectionp);
+		ret->onErrorDelegate_ = gcnew OnErrorDelegate(eventHandler, &IEventHandler::OnError);
+		typedef int(*handle_error_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char *message);
+		ret->eventHandler_->handle_error = (handle_error_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(ret->onErrorDelegate_).ToPointer();
+
+		ret->onMessageDelegate_ = gcnew OnMessageDelegate(eventHandler, &IEventHandler::OnMessage);
+		typedef int(*handle_message_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char *message);
+		ret->eventHandler_->handle_message = (handle_message_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(ret->onMessageDelegate_).ToPointer();
+	}
+	int r = wiredtiger_open(ahome, ret->eventHandler_, aconfig, &connectionp);
 	Marshal::FreeHGlobal((System::IntPtr)(void*)ahome);
 	if (aconfig)
 		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
