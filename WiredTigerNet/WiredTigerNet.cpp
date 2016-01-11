@@ -26,9 +26,9 @@ Cursor::Cursor(WT_CURSOR* cursor) : _cursor(cursor) {
 }
 
 Cursor::~Cursor() {
-	if (_cursor != NULL) {
+	if (_cursor != nullptr) {
 		_cursor->close(_cursor);
-		_cursor = NULL;
+		_cursor = nullptr;
 	}
 }
 
@@ -43,21 +43,6 @@ void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 void Cursor::Insert(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeInsert(_cursor, keyPtr, key->Length);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Cursor::Insert(uint32_t key, array<Byte>^ value) {
-	pin_ptr<Byte> valuePtr = &value[0];
-	int r = NativeInsert(_cursor, key, valuePtr, value->Length);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Cursor::InsertIndex(array<Byte>^ indexKey, array<Byte>^ primaryKey) {
-	pin_ptr<Byte> indexKeyPtr = &indexKey[0];
-	pin_ptr<Byte> primaryKeyPtr = &primaryKey[0];
-	int r = NativeInsertIndex(_cursor, indexKeyPtr, indexKey->Length, primaryKeyPtr, primaryKey->Length);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
@@ -101,30 +86,6 @@ bool Cursor::Search(array<Byte>^ key) {
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 	return true;
-}
-
-bool Cursor::Search(uint32_t key) {
-	int r = NativeSearch(_cursor, key);
-	if (r == WT_NOTFOUND) 
-		return false;
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-	return true;
-}
-
-generic <typename ValueType>
-array<ValueType>^ Cursor::Decode(array<uint32_t>^ keys) {
-	array<ValueType>^ values = gcnew array<ValueType>(keys->Length);
-	try
-	{
-		pin_ptr<uint32_t> keysPtr = &keys[0];
-		pin_ptr<ValueType> valuesPtr = &values[0];
-		NativeDecode(_cursor, keysPtr, keys->Length, (Byte*)valuesPtr);
-	}
-	catch (const NativeTigerException& e) {
-		throw gcnew WiredException(0, gcnew System::String(e.Message().c_str()));
-	}
-	return values;
 }
 
 bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result) {
@@ -176,14 +137,6 @@ array<Byte>^ Cursor::GetKey() {
 	return result;
 }
 
-uint32_t Cursor::GetKeyUInt32() {
-	uint32_t key;
-	int r = _cursor->get_key(_cursor, &key);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-	return key;
-}
-
 array<Byte>^ Cursor::GetValue() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_value(_cursor, &item);
@@ -197,124 +150,56 @@ array<Byte>^ Cursor::GetValue() {
 	return result;
 }
 
-uint32_t Cursor::GetValueUInt32() {
-	uint32_t value;
-	int r = _cursor->get_value(_cursor, &value);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-	return value;
-}
-
 // *************
 // Session
 // *************
 
-Session::Session(WT_SESSION *session) : _session(session) {
+Session::Session(WT_SESSION *session) : session_(session) {
 }
 
 Session::~Session() {
-	if (_session != NULL) {
-		_session->close(_session, NULL);
-		_session = NULL;
+	if (session_ != nullptr) {
+		session_->close(session_, nullptr);
+		session_ = nullptr;
 	}
 }
 
 void Session::BeginTran() {
-	int r = _session->begin_transaction(_session, NULL);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Session::BeginTran(System::String^ config) {
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-	int r = _session->begin_transaction(_session, aconfig);
-	if (aconfig)
-		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
+	int r = session_->begin_transaction(session_, nullptr);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::CommitTran() {
-	int r = _session->commit_transaction(_session, NULL);
+	int r = session_->commit_transaction(session_, nullptr);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::RollbackTran() {
-	int r = _session->rollback_transaction(_session, NULL);
+	int r = session_->rollback_transaction(session_, nullptr);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Checkpoint() {
-	int r = _session->checkpoint(_session, NULL);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Session::Checkpoint(System::String^ config) {
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-	int r = _session->checkpoint(_session, aconfig);
-	if (aconfig)
-		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Session::Compact(System::String^ name) {
-	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-	int r = _session->compact(_session, aname, NULL);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
+	int r = session_->checkpoint(session_, nullptr);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
 
 void Session::Create(System::String^ name, System::String^ config) {
-	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-	int r = _session->create(_session, aname, aconfig);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (aconfig)
-		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Session::Drop(System::String^ name) {
-	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-	int r = _session->drop(_session, aname, NULL);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-}
-
-void Session::Rename(System::String^ oldname, System::String^ newname) {
-	const char *aoldname = (char*)Marshal::StringToHGlobalAnsi(oldname).ToPointer();
-	const char *anewname = (char*)Marshal::StringToHGlobalAnsi(newname).ToPointer();
-	int r = _session->rename(_session, aoldname, anewname, NULL);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aoldname);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)anewname);
+	std::string nameStr(msclr::interop::marshal_as<std::string>(name));
+	std::string configStr(msclr::interop::marshal_as<std::string>(config));
+	int r = session_->create(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 }
 
 Cursor^ Session::OpenCursor(System::String^ name) {
-	WT_CURSOR *cursor;
-	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-	int r = _session->open_cursor(_session, aname, NULL, NULL, &cursor);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-	return gcnew Cursor(cursor);
-}
-
-Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
-	WT_CURSOR *cursor;
-	const char *aname = (char*)Marshal::StringToHGlobalAnsi(name).ToPointer();
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-	int r = _session->open_cursor(_session, aname, NULL, aconfig, &cursor);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)aname);
-	if (aconfig) Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
+	WT_CURSOR* cursor;
+	std::string nameStr(msclr::interop::marshal_as<std::string>(name));
+	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, nullptr, &cursor);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 	return gcnew Cursor(cursor);
@@ -340,16 +225,16 @@ Connection::Connection(IEventHandler^ eventHandler) :
 		nativeEventHandler_ = new WT_EVENT_HANDLER { 
 			to_pointer<handle_error_t>(onErrorDelegate_),
 			to_pointer<handle_message_t>(onMessageDelegate_),
-			NULL, 
-			NULL };
+			nullptr, 
+			nullptr };
 	}
 }
 
 Connection::~Connection() {
-	if (_connection != NULL)
+	if (_connection != nullptr)
 	{
-		_connection->close(_connection, NULL);
-		_connection = NULL;
+		_connection->close(_connection, nullptr);
+		_connection = nullptr;
 	}
 	if (nativeEventHandler_ != nullptr) {
 		delete nativeEventHandler_;
@@ -357,30 +242,17 @@ Connection::~Connection() {
 	}
 }
 
-Session^ Connection::OpenSession(System::String^ config) {
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
+Session^ Connection::OpenSession() {
 	WT_SESSION *session;
-	int r = _connection->open_session(_connection, NULL, aconfig, &session);
-	if (aconfig)
-		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
+	int r = _connection->open_session(_connection, nullptr, nullptr, &session);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 	return gcnew Session(session);
 }
 
-bool Connection::IsNew() {
-	return _connection->is_new(_connection) ? true : false;
-}
-
 System::String^ Connection::GetHome() {
 	const char *home = _connection->get_home(_connection);
 	return gcnew System::String(home);
-}
-
-void Connection::AsyncFlush() {
-	int r = _connection->async_flush(_connection);
-	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
 }
 
 Connection^ Connection::Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler) {
@@ -396,12 +268,24 @@ Connection^ Connection::Open(System::String^ home, System::String^ config, IEven
 }
 
 int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message) {
-	const char* err = wiredtiger_strerror(error);
-	eventHandler_->OnError(error, gcnew System::String(err), gcnew System::String(message));
-	return 0;
+	try {
+		const char* err = wiredtiger_strerror(error);
+		eventHandler_->OnError(error, gcnew System::String(err), gcnew System::String(message));
+		return 0;
+	}
+	catch (System::Exception^ e) {
+		//do not propagate managed exceptions as it can violate internal wt invariants
+		return -1;
+	}
 }
 
 int Connection::OnMessage(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message) {
-	eventHandler_->OnMessage(gcnew System::String(message));
-	return 0;
+	try {
+		eventHandler_->OnMessage(gcnew System::String(message));
+		return 0;
+	}
+	catch (System::Exception^ e) {
+		//do not propagate managed exceptions as it can violate internal wt invariants
+		return -1;
+	}
 }

@@ -3,7 +3,7 @@ using WiredTigerNet;
 
 namespace Tests
 {
-	public class TestingEventHandler : IEventHandler
+	public class LoggingEventHandler : IEventHandler
 	{
 		public readonly List<object> loggedEvents = new List<object>();
 

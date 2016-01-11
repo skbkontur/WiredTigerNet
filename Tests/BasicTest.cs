@@ -31,7 +31,7 @@ namespace Tests
 		public void Simple()
 		{
 			using (var connection = Connection.Open(testDirectory, "create", null))
-			using (var session = connection.OpenSession(""))
+			using (var session = connection.OpenSession())
 			{
 				session.Create("table:test",
 					"key_format=u,value_format=u,prefix_compression=true,block_compressor=snappy,columns=(key,scopeKey)");
@@ -51,7 +51,7 @@ namespace Tests
 		[Test]
 		public void CorrectlyLogErrorWhenTargetDirectoryNotExist()
 		{
-			var eventHandler = new TestingEventHandler();
+			var eventHandler = new LoggingEventHandler();
 			var exception = Assert.Throws<WiredException>(() => Connection.Open(Path.Combine(testDirectory, "inexistentFolder"),
 				"", eventHandler));
 			const int expectedErrorCode = -28997;
@@ -59,11 +59,29 @@ namespace Tests
 				.Or.StringContaining("найти указанный файл"));
 			Assert.That(exception.Message, Is.StringContaining(expectedErrorCode.ToString(CultureInfo.InvariantCulture)));
 			Assert.That(eventHandler.loggedEvents.Count, Is.EqualTo(1));
-			var loggedEvent = (TestingEventHandler.ErrorEvent) eventHandler.loggedEvents.Single();
+			var loggedEvent = (LoggingEventHandler.ErrorEvent) eventHandler.loggedEvents.Single();
 			Assert.That(loggedEvent.errorCode, Is.EqualTo(expectedErrorCode));
 			Assert.That(loggedEvent.errorString, Is.StringContaining("The system cannot find the path specified")
 				.Or.StringContaining("найти указанный файл"));
 			Assert.That(loggedEvent.message, Is.StringContaining(testDirectory));
 		}
+
+		[Test]
+		public void HandleCrashesOfErrorHandler()
+		{
+			var eventHandler = new CrashingEventHandler();
+			var exception = Assert.Throws<WiredException>(() => Connection.Open(Path.Combine(testDirectory, "inexistentFolder"),
+				"", eventHandler));
+			const int expectedErrorCode = -28997;
+			Assert.That(exception.Message, Is.StringContaining("The system cannot find the path specified")
+				.Or.StringContaining("найти указанный файл"));
+			Assert.That(exception.Message, Is.StringContaining(expectedErrorCode.ToString(CultureInfo.InvariantCulture)));
+		}
+
+		//todo tran test
+		//todo create without config
+		//todo open without config
+		//todo environment.IsShutdownRequested
+		//todo test log message
 	}
 }

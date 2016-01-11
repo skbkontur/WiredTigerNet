@@ -175,29 +175,6 @@ int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength) {
 	return cursor->insert(cursor);
 }
 
-int NativeInsert(WT_CURSOR* cursor, uint32_t key, Byte* value, int valueLength) {
-	cursor->set_key(cursor, key);
-	SetValue(cursor, value, valueLength);
-	return cursor->insert(cursor);
-}
-
-int NativeInsertIndex(WT_CURSOR* cursor, Byte* indexKey, int indexKeyLength, Byte* primaryKey, int primaryKeyLength) {
-
-	WT_ITEM indexKeyItem = { 0 };
-	indexKeyItem.data = (void*)indexKey;
-	indexKeyItem.size = indexKeyLength;
-
-	WT_ITEM primaryKeyItem = { 0 };
-	primaryKeyItem.data = (void*)primaryKey;
-	primaryKeyItem.size = primaryKeyLength;
-
-
-	cursor->set_key(cursor, &indexKeyItem, &primaryKeyItem);
-	cursor->set_value(cursor);
-
-	return cursor->insert(cursor);
-}
-
 int NativeRemove(WT_CURSOR* cursor, Byte* key, int keyLength) {
 	SetKey(cursor, key, keyLength);
 	return cursor->remove(cursor);
@@ -208,37 +185,7 @@ int NativeSearch(WT_CURSOR* cursor, Byte* key, int keyLength) {
 	return cursor->search(cursor);
 }
 
-int NativeSearch(WT_CURSOR* cursor, uint32_t key) {
-	cursor->set_key(cursor, key);
-	return cursor->search(cursor);
-}
-
 int NativeSearchNear(WT_CURSOR* cursor, Byte* key, int keyLength, int *exactp) {
 	SetKey(cursor, key, keyLength);
 	return cursor->search_near(cursor, exactp);
-}
-
-void NativeDecode(WT_CURSOR* cursor, const uint32_t* keys, int keysCount, Byte* values) {
-	const uint32_t* keysPtr = keys;
-	Byte* valuePtr = values;
-	WT_ITEM item = { 0 };
-	for (int i = 0; i < keysCount; i++) {
-		uint32_t key = *keysPtr;
-		cursor->set_key(cursor, key);
-		int apiCode = cursor->search(cursor);
-		if (apiCode != 0) {
-			std::stringstream ss;
-			ss << "'cursor->search' failed for key [" << key << "], error code [" << apiCode << "], message '" << wiredtiger_strerror(apiCode) << "'";
-			throw NativeTigerException(ss.str());
-		}
-		apiCode = cursor->get_value(cursor, &item);
-		if (apiCode != 0) {
-			std::stringstream ss;
-			ss << "'cursor->get_value' failed for key [" << key << "], error code [" << apiCode << "], message '" << wiredtiger_strerror(apiCode) << "'";
-			throw NativeTigerException(ss.str());
-		}
-		memcpy(valuePtr, item.data, item.size);
-		keysPtr++;
-		valuePtr += item.size;
-	}
 }
