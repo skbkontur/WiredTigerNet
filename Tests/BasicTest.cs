@@ -16,7 +16,7 @@ namespace Tests
 		{
 			testDirectory = Path.GetFullPath(".testData");
 			if (Directory.Exists(testDirectory))
-				Directory.Delete(testDirectory);
+				Directory.Delete(testDirectory, true);
 			Directory.CreateDirectory(testDirectory);
 		}
 
@@ -24,7 +24,28 @@ namespace Tests
 		public void TearDown()
 		{
 			if (Directory.Exists(testDirectory))
-				Directory.Delete(testDirectory);
+				Directory.Delete(testDirectory, true);
+		}
+
+		[Test]
+		public void Simple()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession(""))
+			{
+				session.Create("table:test",
+					"key_format=u,value_format=u,prefix_compression=true,block_compressor=snappy,columns=(key,scopeKey)");
+				session.Create("index:test:byScopeKey", "prefix_compression=true,block_compressor=snappy,columns=(scopeKey)");
+
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					cursor.Insert("a", "k");
+					cursor.Insert("b", "k");
+				}
+
+				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
+					cursor.AssertValues("k", "a", "b");
+			}
 		}
 
 		[Test]

@@ -323,6 +323,10 @@ Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 // *************
 // Connection
 // *************
+template<typename T>
+static T to_pointer(System::Delegate^ d) {
+	return (T)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(d).ToPointer();
+}
 
 Connection::Connection(IEventHandler^ eventHandler) :
 	eventHandler_(eventHandler),
@@ -331,11 +335,13 @@ Connection::Connection(IEventHandler^ eventHandler) :
 	if (eventHandler_ == nullptr)
 		nativeEventHandler_ = nullptr;
 	else {
-		nativeEventHandler_ = new WT_EVENT_HANDLER();
 		typedef int(*handle_error_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char *message);
-		nativeEventHandler_->handle_error = (handle_error_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(onErrorDelegate_).ToPointer();
 		typedef int(*handle_message_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char *message);
-		nativeEventHandler_->handle_message = (handle_message_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(onMessageDelegate_).ToPointer();
+		nativeEventHandler_ = new WT_EVENT_HANDLER { 
+			to_pointer<handle_error_t>(onErrorDelegate_),
+			to_pointer<handle_message_t>(onMessageDelegate_),
+			NULL, 
+			NULL };
 	}
 }
 
