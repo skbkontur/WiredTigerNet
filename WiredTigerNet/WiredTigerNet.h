@@ -2,23 +2,34 @@
 
 namespace WiredTigerNet {
 
-	public ref class WiredException : System::Exception {
+	public ref class WiredTigerApiException : System::Exception {
 	public:
-		WiredException(int tigerError, System::String^ message);
-		property int TigerError {
-			int get() { return tigerError_; }
+		WiredTigerApiException(int errorCode, System::String^ apiName);
+		property int ErrorCode {
+			int get() { return errorCode_; }
 		}
-		property System::String^ Message {
-			System::String^ get() override { return message_; }
+		property System::String^ ApiName {
+			System::String^ get() override { return apiName_; }
 		}
 	private:
-		int tigerError_;
-		System::String^ message_;
+		int errorCode_;
+		System::String^ apiName_;
 	};
 
 	public interface class IEventHandler {
 		void OnError(int errorCode, System::String^ errorString, System::String^ message);
 		void OnMessage(System::String^ message);
+	};
+
+	public enum class ErrorCodes {
+		WtRollback = -31800,
+		WtDuplicateKey = -31801,
+		WtError = -31802,
+		WtNotFound = -31803,
+		WtPanic = -31804,
+		WtRestart = -31805,
+		WtRunRecovery = -31806,
+		WtCacheFull = -31807
 	};
 
 	public ref class Cursor : public System::IDisposable {
@@ -63,7 +74,7 @@ namespace WiredTigerNet {
 		System::String^ GetHome();
 		static Connection^ Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler);
 	private:
-		WT_CONNECTION* _connection;
+		WT_CONNECTION* connection_;
 		Connection(IEventHandler^ eventHandler);
 
 		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]

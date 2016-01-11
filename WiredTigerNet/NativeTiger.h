@@ -3,13 +3,15 @@
 
 typedef unsigned char Byte;
 
-class NativeTigerException : public std::exception {
+class NativeWiredTigerApiException : public std::exception {
 public:
-	NativeTigerException(const std::string message) :message_(message) {
+	NativeWiredTigerApiException(int errorCode, const std::string apiName) :errorCode_(errorCode), apiName_(apiName) {
 	}
-	const std::string& Message() const { return message_; }
+	const int ErrorCode() const { return errorCode_; }
+	const std::string& ApiName() const { return apiName_; }
 private:
-	const std::string message_;
+	int errorCode_;
+	const std::string apiName_;
 };
 
 long NativeGetTotalCount(WT_CURSOR* cursor, Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);

@@ -93,7 +93,7 @@ private:
 		WT_ITEM item = { 0 };
 		int r = cursor_->get_key(cursor_, &item);
 		if (r != 0)
-			throw NativeTigerException("get_key failed with code " + r);
+			throw NativeWiredTigerApiException(r, "cursor->get_key");
 		*data = new Byte[item.size];
 		*length = item.size;
 		memcpy(*data, item.data, item.size);
@@ -112,7 +112,7 @@ private:
 		if (r == WT_NOTFOUND)
 			return false;
 		if (r != 0)
-			throw NativeTigerException("search_near failed with code " + r);
+			throw NativeWiredTigerApiException(r, "cursor->search_near");
 		return true;
 	}
 
@@ -121,7 +121,7 @@ private:
 		if (r == WT_NOTFOUND) 
 			return false;
 		if (r != 0) 
-			throw NativeTigerException("next failed with code " + r);
+			throw NativeWiredTigerApiException(r, "cursor->next");
 		return true;
 	}
 
@@ -130,7 +130,7 @@ private:
 		if (r == WT_NOTFOUND) 
 			return false;
 		if (r != 0) 
-			throw NativeTigerException("next failed with code " + r);
+			throw NativeWiredTigerApiException(r, "cursor->prev");
 		return true;
 	}
 

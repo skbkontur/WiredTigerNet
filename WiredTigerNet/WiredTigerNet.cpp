@@ -7,14 +7,17 @@
 using namespace WiredTigerNet;
 
 // *************
-// WiredException
+// WiredTigerApiException
 // *************
 
-WiredException::WiredException(int tigerError, System::String^ message) : tigerError_(tigerError) {
-	const char *err = wiredtiger_strerror(tigerError);
-	message_ = message == nullptr
-		? System::String::Format("WiredTiger Error {0} : [{1}]", tigerError, gcnew System::String(err))
-		: message;
+static System::String^ FormatMessage(int errorCode, System::String^ apiName) {
+	const char* err = wiredtiger_strerror(errorCode);
+	return System::String::Format("error code [{0}], error message [{1}], api name [{2}]", 
+		errorCode, gcnew System::String(err), apiName);
+}
+
+WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ apiName)
+	: errorCode_(errorCode), apiName_(apiName), System::Exception(FormatMessage(errorCode, apiName)) {
 }
 
 // *************
@@ -36,14 +39,14 @@ void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 	pin_ptr<Byte> valuePtr = &value[0];
 	int r = NativeInsert(_cursor, keyPtr, key->Length, valuePtr, value->Length);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->insert");
 }
 
 void Cursor::Insert(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeInsert(_cursor, keyPtr, key->Length);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->insert");
 }
 
 bool Cursor::Next() {
@@ -51,7 +54,7 @@ bool Cursor::Next() {
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->next");
 	return true;
 }
 
@@ -60,7 +63,7 @@ bool Cursor::Prev() {
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->prev");
 	return true;
 }
 
@@ -68,13 +71,13 @@ void Cursor::Remove(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeRemove(_cursor, keyPtr, key->Length);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->remove");
 }
 
 void Cursor::Reset() {
 	int r = _cursor->reset(_cursor);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->reset");
 }
 
 bool Cursor::Search(array<Byte>^ key) {
@@ -83,7 +86,7 @@ bool Cursor::Search(array<Byte>^ key) {
 	if (r == WT_NOTFOUND) 
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->search");
 	return true;
 }
 
@@ -94,7 +97,7 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->search_near");
 	result = exact;
 	return true;
 }
@@ -120,14 +123,19 @@ long Cursor::GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ r
 		rightSize = 0;
 		rightPtr = nullptr;
 	}
-	return NativeGetTotalCount(_cursor, leftPtr, leftSize, leftInclusive, rightPtr, rightSize, rightInclusive);
+	try {
+		return NativeGetTotalCount(_cursor, leftPtr, leftSize, leftInclusive, rightPtr, rightSize, rightInclusive);
+	}
+	catch (const NativeWiredTigerApiException& e) {
+		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str()));
+	}
 }
 
 array<Byte>^ Cursor::GetKey() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_key(_cursor, &item);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->get_key");
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
@@ -140,7 +148,7 @@ array<Byte>^ Cursor::GetValue() {
 	WT_ITEM item = { 0 };
 	int r = _cursor->get_value(_cursor, &item);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "cursor->get_value");
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
@@ -166,25 +174,25 @@ Session::~Session() {
 void Session::BeginTran() {
 	int r = session_->begin_transaction(session_, nullptr);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->begin_transaction");
 }
 
 void Session::CommitTran() {
 	int r = session_->commit_transaction(session_, nullptr);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->commit_transaction");
 }
 
 void Session::RollbackTran() {
 	int r = session_->rollback_transaction(session_, nullptr);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->rollback_transaction");
 }
 
 void Session::Checkpoint() {
 	int r = session_->checkpoint(session_, nullptr);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->checkpoint");
 }
 
 static std::string str_or_empty(System::String^ s) {
@@ -204,7 +212,7 @@ void Session::Create(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->create(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->create");
 }
 
 Cursor^ Session::OpenCursor(System::String^ name) {
@@ -212,7 +220,7 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 	std::string nameStr(str_or_die(name, "name"));
 	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, nullptr, &cursor);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "session->open_cursor");
 	return gcnew Cursor(cursor);
 }
 
@@ -242,10 +250,10 @@ Connection::Connection(IEventHandler^ eventHandler) :
 }
 
 Connection::~Connection() {
-	if (_connection != nullptr)
+	if (connection_ != nullptr)
 	{
-		_connection->close(_connection, nullptr);
-		_connection = nullptr;
+		connection_->close(connection_, nullptr);
+		connection_ = nullptr;
 	}
 	if (nativeEventHandler_ != nullptr) {
 		delete nativeEventHandler_;
@@ -255,14 +263,14 @@ Connection::~Connection() {
 
 Session^ Connection::OpenSession() {
 	WT_SESSION *session;
-	int r = _connection->open_session(_connection, nullptr, nullptr, &session);
+	int r = connection_->open_session(connection_, nullptr, nullptr, &session);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
+		throw gcnew WiredTigerApiException(r, "connection->open_session");
 	return gcnew Session(session);
 }
 
 System::String^ Connection::GetHome() {
-	const char *home = _connection->get_home(_connection);
+	const char *home = connection_->get_home(connection_);
 	return gcnew System::String(home);
 }
 
@@ -273,8 +281,8 @@ Connection^ Connection::Open(System::String^ home, System::String^ config, IEven
 	Connection^ ret = gcnew Connection(eventHandler);
 	int r = wiredtiger_open(homeStr.c_str(), ret->nativeEventHandler_, configStr.c_str(), &connectionp);
 	if (r != 0)
-		throw gcnew WiredException(r, nullptr);
-	ret->_connection = connectionp;
+		throw gcnew WiredTigerApiException(r, "wiredtiger_open");
+	ret->connection_ = connectionp;
 	return ret;
 }
 
