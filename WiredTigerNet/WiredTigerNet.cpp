@@ -4,7 +4,6 @@
 #include "msclr\marshal.h"
 #include <string>
 
-using namespace System::Runtime::InteropServices;
 using namespace WiredTigerNet;
 
 // *************
@@ -188,9 +187,21 @@ void Session::Checkpoint() {
 		throw gcnew WiredException(r, nullptr);
 }
 
+static std::string str_or_empty(System::String^ s) {
+	std::string result(msclr::interop::marshal_as<std::string>(s == nullptr ? "" : s));
+	return result;
+}
+
+static std::string str_or_die(System::String^ s, System::String^ parameterName) {
+	if (s == nullptr)
+		throw gcnew System::InvalidOperationException("parameter [" + parameterName + "] can't be null");
+	std::string result(msclr::interop::marshal_as<std::string>(s));
+	return result;
+}
+
 void Session::Create(System::String^ name, System::String^ config) {
-	std::string nameStr(msclr::interop::marshal_as<std::string>(name));
-	std::string configStr(msclr::interop::marshal_as<std::string>(config));
+	std::string nameStr(str_or_die(name, "name"));
+	std::string configStr(str_or_empty(config));
 	int r = session_->create(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
@@ -198,7 +209,7 @@ void Session::Create(System::String^ name, System::String^ config) {
 
 Cursor^ Session::OpenCursor(System::String^ name) {
 	WT_CURSOR* cursor;
-	std::string nameStr(msclr::interop::marshal_as<std::string>(name));
+	std::string nameStr(str_or_die(name, "name"));
 	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, nullptr, &cursor);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
@@ -257,8 +268,8 @@ System::String^ Connection::GetHome() {
 
 Connection^ Connection::Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler) {
 	WT_CONNECTION *connectionp;
-	std::string homeStr(msclr::interop::marshal_as<std::string>(home));
-	std::string configStr(msclr::interop::marshal_as<std::string>(config));
+	std::string homeStr(str_or_die(home, "home"));
+	std::string configStr(str_or_empty(config));
 	Connection^ ret = gcnew Connection(eventHandler);
 	int r = wiredtiger_open(homeStr.c_str(), ret->nativeEventHandler_, configStr.c_str(), &connectionp);
 	if (r != 0)
@@ -267,7 +278,15 @@ Connection^ Connection::Open(System::String^ home, System::String^ config, IEven
 	return ret;
 }
 
+static bool can_use_referenced_objects() {
+	bool isFinalizingForUnload = System::AppDomain::CurrentDomain->IsFinalizingForUnload();
+	bool hasShutdownStarted = System::Environment::HasShutdownStarted;
+	return !isFinalizingForUnload && !hasShutdownStarted;
+}
+
 int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message) {
+	if (!can_use_referenced_objects())
+		return -2;
 	try {
 		const char* err = wiredtiger_strerror(error);
 		eventHandler_->OnError(error, gcnew System::String(err), gcnew System::String(message));
@@ -280,6 +299,8 @@ int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int erro
 }
 
 int Connection::OnMessage(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message) {
+	if (!can_use_referenced_objects())
+		return -2;
 	try {
 		eventHandler_->OnMessage(gcnew System::String(message));
 		return 0;

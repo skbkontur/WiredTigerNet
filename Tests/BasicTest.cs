@@ -44,7 +44,68 @@ namespace Tests
 				}
 
 				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
-					cursor.AssertValues("k", "a", "b");
+					cursor.AssertKeyValues("k", "a", "b");
+			}
+		}
+
+		[Test]
+		public void SimpleWithTran()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test",
+					"key_format=u,value_format=u,prefix_compression=true,block_compressor=snappy,columns=(key,scopeKey)");
+				session.Create("index:test:byScopeKey", "prefix_compression=true,block_compressor=snappy,columns=(scopeKey)");
+
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					cursor.Insert("a", "k");
+					cursor.Insert("b", "k");
+				}
+				session.BeginTran();
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.Insert("c", "k");
+				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
+					cursor.AssertKeyValues("k", "a", "b", "c");
+				session.RollbackTran();
+				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
+					cursor.AssertKeyValues("k", "a", "b");
+			}
+		}
+
+		[Test]
+		public void SessionCreateConfigParameterIsNullable()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", null);
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					cursor.Insert("a", "k");
+					cursor.Insert("b", "k");
+				}
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.AssertAllKeysAndValues("a->k", "b->k");
+			}
+		}
+
+		[Test]
+		public void ConnectionOpenConfigParameterIsNullable()
+		{
+			using (Connection.Open(testDirectory, "create", null))
+			{
+			}
+
+			using (var connection = Connection.Open(testDirectory, null, null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", null);
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.Insert("a", "b");
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.AssertAllKeysAndValues("a->b");
 			}
 		}
 
@@ -78,10 +139,8 @@ namespace Tests
 			Assert.That(exception.Message, Is.StringContaining(expectedErrorCode.ToString(CultureInfo.InvariantCulture)));
 		}
 
-		//todo tran test
-		//todo create without config
-		//todo open without config
 		//todo environment.IsShutdownRequested
 		//todo test log message
+		//todo handle SEH exceptions
 	}
 }
