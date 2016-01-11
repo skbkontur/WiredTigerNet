@@ -16,8 +16,7 @@ namespace WiredTigerNet {
 		System::String^ message_;
 	};
 
-	public interface class IEventHandler
-	{
+	public interface class IEventHandler {
 		void OnError(int errorCode, System::String^ errorString, System::String^ message);
 		void OnMessage(System::String^ message);
 	};
@@ -80,16 +79,19 @@ namespace WiredTigerNet {
 		static Connection^ Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler);
 	private:
 		WT_CONNECTION* _connection;
-		Connection();
+		Connection(IEventHandler^ eventHandler);
 
 		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]
-		delegate void OnErrorDelegate(int errorCode, System::String^ errorString, System::String^ message);
-		System::Delegate^ onErrorDelegate_;
+		delegate int OnErrorDelegate(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message);
+		int OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message);
+		OnErrorDelegate^ onErrorDelegate_;
 
 		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]
-		delegate void OnMessageDelegate(System::String^ message);
-		System::Delegate^ onMessageDelegate_;
+		delegate int OnMessageDelegate(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message);
+		int OnMessage(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message);
+		OnMessageDelegate^ onMessageDelegate_;
 
-		WT_EVENT_HANDLER* eventHandler_;
+		WT_EVENT_HANDLER* nativeEventHandler_;
+		IEventHandler^ eventHandler_;
 	};
 }

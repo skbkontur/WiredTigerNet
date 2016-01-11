@@ -1,5 +1,8 @@
 #include "NativeTiger.h"
 #include "WiredTigerNet.h"
+#include "msclr\marshal_cppstd.h"
+#include "msclr\marshal.h"
+#include <string>
 
 using namespace System::Runtime::InteropServices;
 using namespace WiredTigerNet;
@@ -321,7 +324,19 @@ Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 // Connection
 // *************
 
-Connection::Connection() {
+Connection::Connection(IEventHandler^ eventHandler) :
+	eventHandler_(eventHandler),
+	onErrorDelegate_(gcnew OnErrorDelegate(this, &Connection::OnError)),
+	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)) {
+	if (eventHandler_ == nullptr)
+		nativeEventHandler_ = nullptr;
+	else {
+		nativeEventHandler_ = new WT_EVENT_HANDLER();
+		typedef int(*handle_error_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char *message);
+		nativeEventHandler_->handle_error = (handle_error_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(onErrorDelegate_).ToPointer();
+		typedef int(*handle_message_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char *message);
+		nativeEventHandler_->handle_message = (handle_message_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(onMessageDelegate_).ToPointer();
+	}
 }
 
 Connection::~Connection() {
@@ -330,9 +345,9 @@ Connection::~Connection() {
 		_connection->close(_connection, NULL);
 		_connection = NULL;
 	}
-	if (eventHandler_ != nullptr) {
-		delete eventHandler_;
-		eventHandler_ = nullptr;
+	if (nativeEventHandler_ != nullptr) {
+		delete nativeEventHandler_;
+		nativeEventHandler_ = nullptr;
 	}
 }
 
@@ -364,30 +379,23 @@ void Connection::AsyncFlush() {
 
 Connection^ Connection::Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler) {
 	WT_CONNECTION *connectionp;
-
-	const char *ahome = (char*)Marshal::StringToHGlobalAnsi(home).ToPointer();
-	const char *aconfig = System::String::IsNullOrWhiteSpace(config) ? NULL : (char*)Marshal::StringToHGlobalAnsi(config).ToPointer();
-
-	Connection^ ret = gcnew Connection();
-	if (eventHandler == nullptr)
-		ret->eventHandler_ = nullptr;
-	else {
-		ret->eventHandler_ = new WT_EVENT_HANDLER();
-
-		ret->onErrorDelegate_ = gcnew OnErrorDelegate(eventHandler, &IEventHandler::OnError);
-		typedef int(*handle_error_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char *message);
-		ret->eventHandler_->handle_error = (handle_error_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(ret->onErrorDelegate_).ToPointer();
-
-		ret->onMessageDelegate_ = gcnew OnMessageDelegate(eventHandler, &IEventHandler::OnMessage);
-		typedef int(*handle_message_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char *message);
-		ret->eventHandler_->handle_message = (handle_message_t)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(ret->onMessageDelegate_).ToPointer();
-	}
-	int r = wiredtiger_open(ahome, ret->eventHandler_, aconfig, &connectionp);
-	Marshal::FreeHGlobal((System::IntPtr)(void*)ahome);
-	if (aconfig)
-		Marshal::FreeHGlobal((System::IntPtr)(void*)aconfig);
+	std::string homeStr(msclr::interop::marshal_as<std::string>(home));
+	std::string configStr(msclr::interop::marshal_as<std::string>(config));
+	Connection^ ret = gcnew Connection(eventHandler);
+	int r = wiredtiger_open(homeStr.c_str(), ret->nativeEventHandler_, configStr.c_str(), &connectionp);
 	if (r != 0)
 		throw gcnew WiredException(r, nullptr);
 	ret->_connection = connectionp;
 	return ret;
+}
+
+int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message) {
+	const char* err = wiredtiger_strerror(error);
+	eventHandler_->OnError(error, gcnew System::String(err), gcnew System::String(message));
+	return 0;
+}
+
+int Connection::OnMessage(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message) {
+	eventHandler_->OnMessage(gcnew System::String(message));
+	return 0;
 }
