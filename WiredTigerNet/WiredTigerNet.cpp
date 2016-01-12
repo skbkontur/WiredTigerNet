@@ -15,7 +15,7 @@ using namespace WiredTigerNet;
 		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str())); \
 	} \
 
-#define RANGE_UNFOLD() \
+#define RANGE_UNWRAP() \
 	pin_ptr<Byte> leftPtr; \
 	int leftSize; \
 	if (range.Left.HasValue && range.Left.Value.Bytes->Length > 0) { \
@@ -368,16 +368,16 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 }
 
 long Cursor::GetTotalCount(Range range) {
-	RANGE_UNFOLD(range)
+	RANGE_UNWRAP(range)
 
-		INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
+	INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
 		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive));
 }
 
 bool Cursor::IterationBegin(Range range, Direction direction) {
-	RANGE_UNFOLD(range)
+	RANGE_UNWRAP(range)
 
-		NativeDirection nativeDirection = direction == Direction::Ascending ? Ascending : Descending;
+	NativeDirection nativeDirection = direction == Direction::Ascending ? Ascending : Descending;
 
 	INVOKE_NATIVE(return cursor_->IterationBegin(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
 		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive, nativeDirection, true));
