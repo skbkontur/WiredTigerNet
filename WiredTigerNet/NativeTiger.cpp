@@ -1,164 +1,191 @@
 #include "NativeTiger.h"
 #include <sstream>
 
-enum Direction {
-	Ascending,
-	Descending
-};
-
 inline int min(int a, int b) {
 	return a < b ? a : b;
 }
 
-class NativeCursor {
-public:
-	NativeCursor(WT_CURSOR* cursor) :cursor_(cursor) {
-	}
+NativeCursor::NativeCursor(WT_CURSOR* cursor) :cursor_(cursor), boundary_(nullptr) {
+}
 
-	long GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
-		long result = 0;
-		if (BeginIteration(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending))
-			do
-			{
-				result++;
-			} while (Move());
-		return result;
-	}
-
-	bool BeginIteration(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, Direction newDirection) {
-		int exact;
-		if (newDirection == Ascending) {
-			if (left != nullptr) {
-				SetKey(left, leftSize);
-				if (!SearchNear(&exact) || (exact == 0 && !leftInclusive || exact < 0) && !Next())
-					return false;
-			}
-			else if (!Next())
+bool NativeCursor::BeginIteration(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, Direction newDirection, bool copyBoundary) {
+	int exact;
+	if (newDirection == Ascending) {
+		if (left != nullptr) {
+			if (!SearchNear(left, leftSize, &exact) || (exact == 0 && !leftInclusive || exact < 0) && !Next())
 				return false;
-			boundary_ = right;
-			boundarySize_ = rightSize;
-			boundaryInclusive_ = rightInclusive;
 		}
-		else {
-			if (right != nullptr) {
-				SetKey(right, rightSize);
-				if (!SearchNear(&exact) || (exact == 0 && !rightInclusive || exact > 0) && !Prev())
-					return false;
-			}
-			else if (!Prev())
+		else if (!Next())
+			return false;
+		SetBoundary(right, rightSize, rightInclusive, copyBoundary);
+	}
+	else {
+		if (right != nullptr) {
+			if (!SearchNear(right, rightSize, &exact) || (exact == 0 && !rightInclusive || exact > 0) && !Prev())
 				return false;
-			boundary_ = left;
-			boundarySize_ = leftSize;
-			boundaryInclusive_ = leftInclusive;
 		}
-		direction_ = newDirection;
-		return Within();
-	}
-
-	bool Move() {
-		bool moved = direction_ == Ascending ? Next() : Prev();
-		return moved && Within();
-	}
-private:
-	WT_CURSOR* cursor_;
-	Direction direction_;
-
-	Byte* boundary_;
-	int boundarySize_;
-	bool boundaryInclusive_;
-
-	void SetKey(Byte* data, int length) {
-		WT_ITEM item = { 0 };
-		item.data = (void*)data;
-		item.size = length;
-		cursor_->set_key(cursor_, &item);
-	}	
-
-	bool SearchNear(int* exact) {
-		int r = cursor_->search_near(cursor_, exact);
-		if (r == WT_NOTFOUND)
+		else if (!Prev())
 			return false;
-		if (r != 0)
-			throw NativeWiredTigerApiException(r, "cursor->search_near");
+		SetBoundary(left, leftSize, leftInclusive, copyBoundary);
+	}
+	direction_ = newDirection;
+	return Within();
+}
+
+bool NativeCursor::Search(Byte* key, int keyLength) {
+	SetKey(key, keyLength);
+	int r = cursor_->search(cursor_);
+	if (r == WT_NOTFOUND)
+		return false;
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->search");
+	return true;
+}
+
+bool NativeCursor::SearchNear(Byte* data, int length, int* exact) {
+	SetKey(data, length);
+	int r = cursor_->search_near(cursor_, exact);
+	if (r == WT_NOTFOUND)
+		return false;
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->search_near");
+	return true;
+}
+
+bool NativeCursor::Next() {
+	int r = cursor_->next(cursor_);
+	if (r == WT_NOTFOUND)
+		return false;
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->next");
+	return true;
+}
+
+bool NativeCursor::Prev() {
+	int r = cursor_->prev(cursor_);
+	if (r == WT_NOTFOUND)
+		return false;
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->prev");
+	return true;
+}
+
+bool NativeCursor::Within() {
+	if (boundary_ == nullptr)
 		return true;
+	WT_ITEM item = { 0 };
+	GetKey(&item);
+	int result = memcmp(item.data, boundary_, min(item.size, boundarySize_));
+	if (result == 0 && item.size != boundarySize_)
+		result = item.size < boundarySize_ ? -1 : 1;
+	if (result == 0)
+		return boundaryInclusive_;
+	return direction_ == Ascending ? result < 0 : result > 0;
+}
+
+void NativeCursor::SetBoundary(Byte* boundary, int boundarySize, bool boundaryInclusive, bool copyBoundary) {
+	if (boundary == nullptr)
+		return;
+	boundarySize_ = boundarySize;
+	boundaryInclusive_ = boundaryInclusive;
+	ownsBoundary_ = copyBoundary;
+	if (copyBoundary) {
+		boundary_ = new Byte[boundarySize];
+		memcpy(boundary_, boundary, boundarySize);
 	}
+	else
+		boundary_ = boundary;
+}
 
-	bool Next() {
-		int r = cursor_->next(cursor_);
-		if (r == WT_NOTFOUND)
-			return false;
-		if (r != 0)
-			throw NativeWiredTigerApiException(r, "cursor->next");
-		return true;
+int NativeCursor::Reset() {
+	int r = cursor_->reset(cursor_);
+	if (r != 0)
+		return r;
+	if (ownsBoundary_)
+		delete[] boundary_;
+	boundary_ = nullptr;
+}
+
+NativeCursor::~NativeCursor() {
+	if (boundary_ != nullptr) {
+		if (ownsBoundary_)
+			delete[] boundary_;
+		boundary_ = nullptr;
 	}
-
-	bool Prev() {
-		int r = cursor_->prev(cursor_);
-		if (r == WT_NOTFOUND)
-			return false;
-		if (r != 0)
-			throw NativeWiredTigerApiException(r, "cursor->prev");
-		return true;
+	if (cursor_ != nullptr) {
+		cursor_->close(cursor_);
+		cursor_ = nullptr;
 	}
-
-	bool Within() {
-		if (boundary_ == nullptr)
-			return true;
-		WT_ITEM item = { 0 };
-		int r = cursor_->get_key(cursor_, &item);
-		if (r != 0)
-			throw NativeWiredTigerApiException(r, "cursor->get_key");
-		int result = memcmp(item.data, boundary_, min(item.size, boundarySize_));
-		if (result == 0 && item.size != boundarySize_)
-			result = item.size < boundarySize_ ? -1 : 1;
-		if (result == 0)
-			return boundaryInclusive_;
-		return direction_ == Ascending ? result < 0 : result > 0;
-	}
-};
-
-static void SetKey(WT_CURSOR* cursor, Byte* key, int keyLength) {
-	WT_ITEM keyItem = { 0 };
-	keyItem.data = (void*)key;
-	keyItem.size = keyLength;
-	cursor->set_key(cursor, &keyItem);
 }
 
-static void SetValue(WT_CURSOR* cursor, Byte* value, int valueLength) {
-	WT_ITEM valueItem = { 0 };
-	valueItem.data = (void*)value;
-	valueItem.size = valueLength;
-	cursor->set_value(cursor, &valueItem);
+long NativeCursor::GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
+	long result = 0;
+	if (BeginIteration(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending, false))
+		do
+		{
+			result++;
+		} while (Move());
+	return result;
 }
 
-long NativeGetTotalCount(WT_CURSOR* cursor, Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
-	NativeCursor nativeCursor(cursor);
-	return nativeCursor.GetTotalCount(left, leftSize, leftInclusive, right, rightSize, rightInclusive);
+bool NativeCursor::Move() {
+	bool moved = direction_ == Ascending ? Next() : Prev();
+	return moved && Within();
 }
 
-int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength, Byte* value, int valueLength) {
-	SetKey(cursor, key, keyLength);
-	SetValue(cursor, value, valueLength);
-	return cursor->insert(cursor);
+void NativeCursor::GetKey(WT_ITEM* target) {
+	int r = cursor_->get_key(cursor_, target);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->get_key");
 }
 
-int NativeInsert(WT_CURSOR* cursor, Byte* key, int keyLength) {
-	SetKey(cursor, key, keyLength);
-	cursor->set_value(cursor);
-	return cursor->insert(cursor);
+void NativeCursor::GetValue(WT_ITEM* target) {
+	int r = cursor_->get_value(cursor_, target);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->get_value");
 }
 
-int NativeRemove(WT_CURSOR* cursor, Byte* key, int keyLength) {
-	SetKey(cursor, key, keyLength);
-	return cursor->remove(cursor);
+void NativeCursor::Remove(Byte* key, int keyLength) {
+	SetKey(key, keyLength);
+	int r = cursor_->remove(cursor_);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->remove");
 }
 
-int NativeSearch(WT_CURSOR* cursor, Byte* key, int keyLength) {
-	SetKey(cursor, key, keyLength);
-	return cursor->search(cursor);
+void NativeCursor::Insert(Byte* key, int keyLength, Byte* value, int valueLength) {
+	SetKey(key, keyLength);
+	SetValue(value, valueLength);
+	int r = cursor_->insert(cursor_);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->insert");
 }
 
-int NativeSearchNear(WT_CURSOR* cursor, Byte* key, int keyLength, int *exactp) {
-	SetKey(cursor, key, keyLength);
-	return cursor->search_near(cursor, exactp);
+void NativeCursor::Insert(Byte* key, int keyLength) {
+	SetKey(key, keyLength);
+	cursor_->set_value(cursor_);
+	int r = cursor_->insert(cursor_);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "cursor->insert");
+}
+
+void NativeCursor::SetKey(Byte* data, int length) {
+	WT_ITEM item = { 0 };
+	item.data = (void*)data;
+	item.size = length;
+	cursor_->set_key(cursor_, &item);
+}
+
+void NativeCursor::SetValue(Byte* data, int length) {
+	WT_ITEM item = { 0 };
+	item.data = (void*)data;
+	item.size = length;
+	cursor_->set_value(cursor_, &item);
+}
+
+NativeCursor* OpenNativeCursor(WT_SESSION* session, const char* name, const char* config) {
+	WT_CURSOR* cursor;
+	int r = session->open_cursor(session, name, nullptr, config, &cursor);
+	if (r != 0)
+		throw NativeWiredTigerApiException(r, "session->open_cursor");
+	return new NativeCursor(cursor);
 }

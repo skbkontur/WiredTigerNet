@@ -88,9 +88,19 @@ namespace WiredTigerNet {
 		static Range emptyRange = Range(exclusiveOne, exclusiveOne);
 	};
 
-	public ref class Cursor : public System::IDisposable {
+	public ref class WiredTigerComponent abstract  {
 	public:
-		virtual ~Cursor();
+		WiredTigerComponent();
+		~WiredTigerComponent();
+		!WiredTigerComponent();
+	protected:
+		virtual void Close() abstract;
+	private:
+		bool disposed_;
+	};
+
+	public ref class Cursor : public WiredTigerComponent {
+	public:
 		void Insert(array<Byte>^ key, array<Byte>^ value);
 		void Insert(array<Byte>^ key);
 		bool Next();
@@ -105,16 +115,17 @@ namespace WiredTigerNet {
 		property CursorSchemaType SchemaType {
 			CursorSchemaType get() override { return schemaType_; }
 		}
+	protected:
+		virtual void Close() override;
 	internal:
-		Cursor(WT_CURSOR* cursor);
+		Cursor(NativeCursor* cursor);
 	private:
-		WT_CURSOR* cursor_;
+		NativeCursor* cursor_;
 		CursorSchemaType schemaType_;
 	};
 
-	public ref class Session : public System::IDisposable {
+	public ref class Session : public WiredTigerComponent {
 	public:
-		~Session();
 		void BeginTran();
 		void CommitTran();
 		void RollbackTran();
@@ -122,18 +133,21 @@ namespace WiredTigerNet {
 		void Create(System::String^ name, System::String^ config);
 		Cursor^ OpenCursor(System::String^ name);
 		Cursor^ OpenCursor(System::String^ name, System::String^ config);
+	protected:
+		virtual void Close() override;
 	internal:
 		Session(WT_SESSION *session);
 	private:
 		WT_SESSION* session_;
 	};
 
-	public ref class Connection : public System::IDisposable {
+	public ref class Connection : public WiredTigerComponent {
 	public:
-		~Connection();
 		Session^ OpenSession();
 		System::String^ GetHome();
 		static Connection^ Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler);
+	protected:
+		virtual void Close() override;
 	private:
 		WT_CONNECTION* connection_;
 		Connection(IEventHandler^ eventHandler);

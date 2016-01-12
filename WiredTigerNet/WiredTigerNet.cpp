@@ -38,6 +38,38 @@ WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ ap
 }
 
 // *************
+// WiredTigerComponent
+// *************
+
+WiredTigerComponent::WiredTigerComponent() :disposed_(false) {
+	System::Console::WriteLine("zzz");
+}
+
+WiredTigerComponent::~WiredTigerComponent() {
+	if (disposed_)
+		return;
+	try {
+		this->Close();
+	}
+	finally {
+		disposed_ = true;
+		System::GC::SuppressFinalize(this);
+	}
+}
+
+WiredTigerComponent::!WiredTigerComponent() {
+	if (disposed_)
+		return;
+	try {
+		this->Close();
+	}
+	finally {
+		disposed_ = true;
+	}
+}
+
+
+// *************
 // Boundary/Range
 // *************
 
@@ -134,21 +166,21 @@ static bool is_raw_bytes(const char* format) {
 	return strcmp(format, "u") == 0 || strcmp(format, "U") == 0;
 }
 
-Cursor::Cursor(WT_CURSOR* cursor) : cursor_(cursor) {
-	if (is_raw_bytes(cursor->key_format) && is_raw_bytes(cursor->value_format))
+Cursor::Cursor(NativeCursor* cursor) : cursor_(cursor) {
+	if (is_raw_bytes(cursor->KeyFormat()) && is_raw_bytes(cursor->ValueFormat()))
 		schemaType_ = CursorSchemaType::KeyAndValue;
-	else if (is_raw_bytes(cursor->key_format) && strcmp(cursor->value_format, "") == 0)
+	else if (is_raw_bytes(cursor->KeyFormat()) && strcmp(cursor->ValueFormat(), "") == 0)
 		schemaType_ = CursorSchemaType::KeyOnly;
 	else {
 		char* messageFormat = "unsupported cursor schema (key_format->value_format) = ({0}->{1}), expected (u->u) or (u->)";
 		throw gcnew WiredTigerException(System::String::Format(gcnew System::String(messageFormat),
-			gcnew System::String(cursor->key_format), gcnew System::String(cursor->value_format)));
+			gcnew System::String(cursor->KeyFormat()), gcnew System::String(cursor->ValueFormat())));
 	}
 }
 
-Cursor::~Cursor() {
+void Cursor::Close() {
 	if (cursor_ != nullptr) {
-		cursor_->close(cursor_);
+		delete cursor_;
 		cursor_ = nullptr;
 	}
 }
@@ -158,71 +190,48 @@ void Cursor::Insert(array<Byte>^ key, array<Byte>^ value) {
 		throw gcnew WiredTigerException("invalid Insert overload, current schema is [CursorSchemaType.KeyOnly] so use Insert(byte[]) instead");
 	pin_ptr<Byte> keyPtr = &key[0];
 	pin_ptr<Byte> valuePtr = &value[0];
-	int r = NativeInsert(cursor_, keyPtr, key->Length, valuePtr, value->Length);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->insert");
+	INVOKE_NATIVE(cursor_->Insert(keyPtr, key->Length, valuePtr, value->Length))
 }
 
 void Cursor::Insert(array<Byte>^ key) {
 	if (schemaType_ == CursorSchemaType::KeyAndValue)
 		throw gcnew WiredTigerException("invalid Insert overload, current schema is [CursorSchemaType.KeyAndValue] so use Insert(byte[],byte[]) instead");
 	pin_ptr<Byte> keyPtr = &key[0];
-	int r = NativeInsert(cursor_, keyPtr, key->Length);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->insert");
+	INVOKE_NATIVE(cursor_->Insert(keyPtr, key->Length))
 }
 
 bool Cursor::Next() {
-	int r = cursor_->next(cursor_);
-	if (r == WT_NOTFOUND)
-		return false;
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->next");
-	return true;
+	INVOKE_NATIVE(return cursor_->Next())
 }
 
 bool Cursor::Prev() {
-	int r = cursor_->prev(cursor_);
-	if (r == WT_NOTFOUND)
-		return false;
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->prev");
-	return true;
+	INVOKE_NATIVE(return cursor_->Prev())
 }
 
 void Cursor::Remove(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
-	int r = NativeRemove(cursor_, keyPtr, key->Length);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->remove");
+	INVOKE_NATIVE(cursor_->Remove(keyPtr, key->Length))
 }
 
 void Cursor::Reset() {
-	int r = cursor_->reset(cursor_);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->reset");
+	INVOKE_NATIVE(cursor_->Reset())
 }
 
 bool Cursor::Search(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
-	int r = NativeSearch(cursor_, keyPtr, key->Length);
-	if (r == WT_NOTFOUND)
-		return false;
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->search");
-	return true;
+	INVOKE_NATIVE(return cursor_->Search(keyPtr, key->Length))
 }
 
 bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result) {
 	int exact;
 	pin_ptr<Byte> keyPtr = &key[0];
-	int r = NativeSearchNear(cursor_, keyPtr, key->Length, &exact);
-	if (r == WT_NOTFOUND)
-		return false;
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->search_near");
-	result = exact;
-	return true;
+
+	INVOKE_NATIVE({
+		if (!cursor_->SearchNear(keyPtr, key->Length, &exact))
+			return false;
+		result = exact;
+		return true;
+	})
 }
 
 long Cursor::GetTotalCount(Range range) {
@@ -249,15 +258,13 @@ long Cursor::GetTotalCount(Range range) {
 		rightPtr = nullptr;
 	}
 
-	INVOKE_NATIVE(return NativeGetTotalCount(cursor_, leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive, 
+	INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
 		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive));
 }
 
 array<Byte>^ Cursor::GetKey() {
 	WT_ITEM item = { 0 };
-	int r = cursor_->get_key(cursor_, &item);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->get_key");
+	INVOKE_NATIVE(cursor_->GetKey(&item));
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
@@ -270,9 +277,7 @@ array<Byte>^ Cursor::GetValue() {
 	if (schemaType_ == CursorSchemaType::KeyOnly)
 		throw gcnew WiredTigerException("for current schema [CursorSchemaType.KeyOnly] value is not defined");
 	WT_ITEM item = { 0 };
-	int r = cursor_->get_value(cursor_, &item);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "cursor->get_value");
+	INVOKE_NATIVE(cursor_->GetValue(&item))
 	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
@@ -288,7 +293,7 @@ array<Byte>^ Cursor::GetValue() {
 Session::Session(WT_SESSION *session) : session_(session) {
 }
 
-Session::~Session() {
+void Session::Close() {
 	if (session_ != nullptr) {
 		session_->close(session_, nullptr);
 		session_ = nullptr;
@@ -340,22 +345,14 @@ void Session::Create(System::String^ name, System::String^ config) {
 }
 
 Cursor^ Session::OpenCursor(System::String^ name) {
-	WT_CURSOR* cursor;
 	std::string nameStr(str_or_die(name, "name"));
-	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, nullptr, &cursor);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->open_cursor");
-	return gcnew Cursor(cursor);
+	return gcnew Cursor(OpenNativeCursor(session_, nameStr.c_str(), nullptr));
 }
 
 Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
-	WT_CURSOR* cursor;
 	std::string nameStr(str_or_die(name, "name"));
 	std::string configStr(str_or_die(config, "config"));
-	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, configStr.c_str(), &cursor);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->open_cursor");
-	return gcnew Cursor(cursor);
+	return gcnew Cursor(OpenNativeCursor(session_, nameStr.c_str(), configStr.c_str()));
 }
 
 // *************
@@ -383,7 +380,7 @@ Connection::Connection(IEventHandler^ eventHandler)
 	}
 }
 
-Connection::~Connection() {
+void Connection::Close() {
 	if (connection_ != nullptr)
 	{
 		connection_->close(connection_, nullptr);
