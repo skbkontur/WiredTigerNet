@@ -293,8 +293,8 @@ Cursor::Cursor(NativeCursor* cursor) : cursor_(cursor) {
 	else if (is_raw_bytes(cursor->KeyFormat()) && strcmp(cursor->ValueFormat(), "") == 0)
 		schemaType_ = CursorSchemaType::KeyOnly;
 	else {
-		char* messageFormat = "unsupported cursor schema (key_format->value_format) = ({0}->{1}), expected (u->u) or (u->)";
-		throw gcnew WiredTigerException(System::String::Format(gcnew System::String(messageFormat),
+		System::String^ messageFormat = "unsupported cursor schema (key_format->value_format) = ({0}->{1}), expected (u->u) or (u->)";
+		throw gcnew WiredTigerException(System::String::Format(messageFormat,
 			gcnew System::String(cursor->KeyFormat()), gcnew System::String(cursor->ValueFormat())));
 	}
 }
