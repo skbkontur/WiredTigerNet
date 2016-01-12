@@ -8,29 +8,39 @@ namespace Tests
 {
 	public static class TestHelpers
 	{
+		public static byte[] B(this string s)
+		{
+			return Encoding.ASCII.GetBytes(s);
+		}
+
+		public static string S(this byte[] b)
+		{
+			return Encoding.ASCII.GetString(b);
+		}
+
 		public static void Insert(this Cursor cursor, string key, string value)
 		{
-			cursor.Insert(Encoding.ASCII.GetBytes(key), Encoding.ASCII.GetBytes(value));
+			cursor.Insert(key.B(), value.B());
 		}
 		
 		public static void Insert(this Cursor cursor, string key)
 		{
-			cursor.Insert(Encoding.ASCII.GetBytes(key));
+			cursor.Insert(key.B());
 		}
 
 		public static bool Search(this Cursor cursor, string key)
 		{
-			return cursor.Search(Encoding.ASCII.GetBytes(key));
+			return cursor.Search(key.B());
 		}
 
 		public static string GetKeyString(this Cursor cursor)
 		{
-			return Encoding.ASCII.GetString(cursor.GetKey());
+			return cursor.GetKey().S();
 		}
 
 		public static string GetValueString(this Cursor cursor)
 		{
-			return Encoding.ASCII.GetString(cursor.GetValue());
+			return cursor.GetValue().S();
 		}
 
 		public static void AssertKeyValues(this Cursor cursor, string key, params string[] values)

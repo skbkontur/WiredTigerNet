@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -207,6 +206,31 @@ namespace Tests
 				var exception = Assert.Throws<WiredTigerException>(() => session.OpenCursor("table:test"));
 				Assert.That(exception.Message,
 					Is.EqualTo("unsupported cursor schema (key_format->value_format) = (u->uu), expected (u->u) or (u->)"));
+			}
+		}
+
+		[Test]
+		public void GetTotalCount()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", "key_format=u,value_format=u,columns=(k,v)");
+
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					cursor.Insert("a", "v");
+					cursor.Insert("b", "v");
+					cursor.Insert("c", "v");
+				}
+
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					Assert.That(cursor.GetTotalCount(Range.Segment("d".B(), "d".B())), Is.EqualTo(0));
+					Assert.That(cursor.GetTotalCount(Range.Segment("c".B(), "c".B())), Is.EqualTo(1));
+					Assert.That(cursor.GetTotalCount(Range.Segment("b".B(), "f".B())), Is.EqualTo(2));
+					Assert.That(cursor.GetTotalCount(Range.Line()), Is.EqualTo(3));
+				}
 			}
 		}
 

@@ -30,6 +30,95 @@ WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ ap
 }
 
 // *************
+// Boundary/Range
+// *************
+
+Boundary::Boundary(array<Byte>^ value, bool inclusive) :bytes_(value), inclusive_(inclusive) {
+}
+
+Range::Range(System::Nullable<Boundary> left, System::Nullable<Boundary> right) : left_(left), right_(right) {
+}
+
+Range Range::Segment(array<Byte>^ left, array<Byte>^ right) {
+	return Range(Boundary(left, true), Boundary(right, true));
+}
+
+Range Range::PositiveRay(array<Byte>^ left) {
+	return Range(Boundary(left, true), System::Nullable<Boundary>());
+}
+
+Range Range::NegativeRay(array<Byte>^ right) {
+	return Range(System::Nullable<Boundary>(), Boundary(right, true));
+}
+
+Range Range::NegativeOpenRay(array<Byte>^ right) {
+	return Range(System::Nullable<Boundary>(), Boundary(right, false));
+}
+
+Range Range::Line() {
+	return line;
+}
+
+Range Range::Empty() {
+	return emptyRange;
+}
+
+Range Range::PositiveOpenRay(array<Byte>^ left) {
+	return Range(Boundary(left, false), System::Nullable<Boundary>());
+}
+
+Range Range::LeftOpenSegment(array<Byte>^ left, array<Byte>^ right) {
+	return Range(Boundary(left, false), Boundary(right, true));
+}
+
+Range Range::RightOpenSegment(array<Byte>^ left, array<Byte>^ right) {
+	return Range(Boundary(left, true), Boundary(right, false));
+}
+
+Range Range::Interval(array<Byte>^ left, array<Byte>^ right) {
+	return Range(Boundary(left, false), Boundary(right, false));
+}
+
+Range Range::Prefix(array<Byte>^ prefix) {
+	return Prefix(prefix, prefix);
+}
+
+Range Range::Prefix(array<Byte>^ left, array<Byte>^ right) {
+	array<Byte>^ rightBoundary = IncrementBytes(right);
+	return Range(Boundary(left, true),
+		rightBoundary == nullptr ? System::Nullable<Boundary>() : Boundary(rightBoundary, false));
+}
+
+array<Byte>^ Range::IncrementBytes(array<Byte>^ source) {
+	array<Byte>^ result = gcnew array<Byte>(source->Length);
+	System::Array::Copy(source, result, source->Length);
+	for (int i = result->Length - 1; i >= 0; i--)
+		if (result[i] == System::Byte::MaxValue)
+			result[i] = 0;
+		else
+		{
+			result[i]++;
+			return result;
+		}
+	return nullptr;
+}
+
+array<Byte>^ Range::DecrementBytes(array<Byte>^ source) {
+	array<Byte>^ result = gcnew array<Byte>(source->Length);
+	System::Array::Copy(source, result, source->Length);
+	for (int i = result->Length - 1; i >= 0; i--)
+		if (result[i] == 0)
+			result[i] = System::Byte::MaxValue;
+		else
+		{
+			result[i]--;
+			return result;
+		}
+	return nullptr;
+}
+
+
+// *************
 // Cursor
 // *************
 
@@ -128,12 +217,14 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 	return true;
 }
 
-long Cursor::GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive) {
+long Cursor::GetTotalCount(Range range) {
+	
 	pin_ptr<Byte> leftPtr;
 	int leftSize;
-	if (left != nullptr && left->Length > 0) {
-		leftSize = left->Length;
-		leftPtr = &left[0];
+	if (range.Left.HasValue && range.Left.Value.Bytes->Length > 0) {
+		array<Byte>^ bytes = range.Left.Value.Bytes;
+		leftSize = bytes->Length;
+		leftPtr = &bytes[0];
 	}
 	else {
 		leftSize = 0;
@@ -141,16 +232,19 @@ long Cursor::GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ r
 	}
 	pin_ptr<Byte> rightPtr;
 	int rightSize;
-	if (right != nullptr && right->Length) {
-		rightSize = right->Length;
-		rightPtr = &right[0];
+	if (range.Right.HasValue && range.Right.Value.Bytes->Length) {
+		array<Byte>^ bytes = range.Right.Value.Bytes;
+		rightSize = bytes->Length;
+		rightPtr = &bytes[0];
 	}
 	else {
 		rightSize = 0;
 		rightPtr = nullptr;
 	}
+
 	try {
-		return NativeGetTotalCount(cursor_, leftPtr, leftSize, leftInclusive, rightPtr, rightSize, rightInclusive);
+		return NativeGetTotalCount(cursor_, leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
+			rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive);
 	}
 	catch (const NativeWiredTigerApiException& e) {
 		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str()));

@@ -42,6 +42,52 @@ namespace WiredTigerNet {
 		KeyOnly
 	};
 
+	public value class Boundary {
+	public:
+		Boundary(array<Byte>^ bytes, bool inclusive);
+		property array<Byte>^ Bytes {
+			array<Byte>^ get() override { return bytes_; }
+		}
+		property bool Inclusive {
+			bool get() override { return inclusive_; }
+		}
+	private:
+		array<Byte>^ bytes_;
+		bool inclusive_;
+	};
+
+	public value class Range {
+	public:
+		Range(System::Nullable<Boundary> left, System::Nullable<Boundary> right);
+		property System::Nullable<Boundary> Left {
+			System::Nullable<Boundary> get() override { return left_; }
+		}
+		property System::Nullable<Boundary> Right {
+			System::Nullable<Boundary> get() override { return right_; }
+		}
+		static Range Segment(array<Byte>^ left, array<Byte>^ right);
+		static Range PositiveRay(array<Byte>^ left);
+		static Range NegativeRay(array<Byte>^ right);
+		static Range NegativeOpenRay(array<Byte>^ right);
+		static Range Line();
+		static Range Empty();
+		static Range PositiveOpenRay(array<Byte>^ left);
+		static Range LeftOpenSegment(array<Byte>^ left, array<Byte>^ right);
+		static Range RightOpenSegment(array<Byte>^ left, array<Byte>^ right);
+		static Range Interval(array<Byte>^ left, array<Byte>^ right);
+		static Range Prefix(array<Byte>^ prefix);
+		static Range Prefix(array<Byte>^ left, array<Byte>^ right);
+		static array<Byte>^ IncrementBytes(array<Byte>^ source);
+		static array<Byte>^ DecrementBytes(array<Byte>^ source);
+	private:
+		System::Nullable<Boundary> left_;
+		System::Nullable<Boundary> right_;
+
+		static Range line = Range(System::Nullable<Boundary>(), System::Nullable<Boundary>());
+		static Boundary exclusiveOne = Boundary(gcnew array<Byte>(1) { 1 }, false);
+		static Range emptyRange = Range(exclusiveOne, exclusiveOne);
+	};
+
 	public ref class Cursor : public System::IDisposable {
 	public:
 		virtual ~Cursor();
@@ -53,7 +99,7 @@ namespace WiredTigerNet {
 		void Reset();
 		bool Search(array<Byte>^ key);
 		bool SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result);
-		long GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive);
+		long GetTotalCount(Range range);
 		array<Byte>^ GetKey();
 		array<Byte>^ GetValue();
 		property CursorSchemaType SchemaType {
