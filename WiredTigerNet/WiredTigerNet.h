@@ -2,7 +2,12 @@
 
 namespace WiredTigerNet {
 
-	public ref class WiredTigerApiException : System::Exception {
+	public ref class WiredTigerException : System::Exception {
+	public:
+		WiredTigerException(System::String^ message);
+	};
+
+	public ref class WiredTigerApiException : WiredTigerException {
 	public:
 		WiredTigerApiException(int errorCode, System::String^ apiName);
 		property int ErrorCode {
@@ -32,6 +37,11 @@ namespace WiredTigerNet {
 		WtCacheFull = -31807
 	};
 
+	public enum class CursorSchemaType {
+		KeyAndValue,
+		KeyOnly
+	};
+
 	public ref class Cursor : public System::IDisposable {
 	public:
 		virtual ~Cursor();
@@ -46,10 +56,14 @@ namespace WiredTigerNet {
 		long GetTotalCount(array<Byte>^ left, bool leftInclusive, array<Byte>^ right, bool rightInclusive);
 		array<Byte>^ GetKey();
 		array<Byte>^ GetValue();
+		property CursorSchemaType SchemaType {
+			CursorSchemaType get() override { return schemaType_; }
+		}
 	internal:
 		Cursor(WT_CURSOR* cursor);
 	private:
-		WT_CURSOR* _cursor;
+		WT_CURSOR* cursor_;
+		CursorSchemaType schemaType_;
 	};
 
 	public ref class Session : public System::IDisposable {

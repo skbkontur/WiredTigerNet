@@ -12,6 +12,11 @@ namespace Tests
 		{
 			cursor.Insert(Encoding.ASCII.GetBytes(key), Encoding.ASCII.GetBytes(value));
 		}
+		
+		public static void Insert(this Cursor cursor, string key)
+		{
+			cursor.Insert(Encoding.ASCII.GetBytes(key));
+		}
 
 		public static bool Search(this Cursor cursor, string key)
 		{

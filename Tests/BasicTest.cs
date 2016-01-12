@@ -152,6 +152,65 @@ namespace Tests
 		}
 
 		[Test]
+		public void CheckKeyOnlyCursorSchema()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:keyOnly", "key_format=u,value_format=,columns=(k)");
+				using (var cursor = session.OpenCursor("table:keyOnly"))
+				{
+					Assert.That(cursor.SchemaType, Is.EqualTo(CursorSchemaType.KeyOnly));
+					var exception = Assert.Throws<WiredTigerException>(() => cursor.Insert("a", "b"));
+					Assert.That(exception.Message,
+						Is.EqualTo("invalid Insert overload, current schema is [CursorSchemaType.KeyOnly] so use Insert(byte[]) instead"));
+					cursor.Insert("a");
+				}
+				using (var cursor = session.OpenCursor("table:keyOnly"))
+				{
+					Assert.That(cursor.Search("a"));
+					Assert.That(cursor.GetKeyString(), Is.EqualTo("a"));
+					var exception = Assert.Throws<WiredTigerException>(() => cursor.GetValue());
+					Assert.That(exception.Message,
+						Is.EqualTo("for current schema [CursorSchemaType.KeyOnly] value is not defined"));
+				}
+			}
+		}
+		
+		[Test]
+		public void CheckKeyAndValueCursorSchema()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:keyAndValue", "key_format=u,value_format=u,columns=(k,v)");
+				using (var cursor = session.OpenCursor("table:keyAndValue"))
+				{
+					Assert.That(cursor.SchemaType, Is.EqualTo(CursorSchemaType.KeyAndValue));
+					var exception = Assert.Throws<WiredTigerException>(() => cursor.Insert("a"));
+					Assert.That(exception.Message,
+						Is.EqualTo("invalid Insert overload, current schema is [CursorSchemaType.KeyAndValue] so use Insert(byte[],byte[]) instead"));
+					cursor.Insert("a", "b");
+				}
+				using (var cursor = session.OpenCursor("table:keyAndValue"))
+					cursor.AssertAllKeysAndValues("a->b");
+			}
+		}
+
+		[Test]
+		public void ValidateSupportedCursorSchema()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", "key_format=u,value_format=uu,columns=(key,scopeKey,scopeKey2)");
+				var exception = Assert.Throws<WiredTigerException>(() => session.OpenCursor("table:test"));
+				Assert.That(exception.Message,
+					Is.EqualTo("unsupported cursor schema (key_format->value_format) = (u->uu), expected (u->u) or (u->)"));
+			}
+		}
+
+		[Test]
 		public void HandleCrashesOfErrorHandler()
 		{
 			var eventHandler = new CrashingEventHandler();
