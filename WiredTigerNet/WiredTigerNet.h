@@ -88,6 +88,26 @@ namespace WiredTigerNet {
 		static Range emptyRange = Range(exclusiveOne, exclusiveOne);
 	};
 
+	[System::Runtime::CompilerServices::ExtensionAttribute]
+	public ref class RangeOperators abstract sealed {
+	public:
+		[System::Runtime::CompilerServices::ExtensionAttribute]
+		static Range Inclusive(Range range);
+		[System::Runtime::CompilerServices::ExtensionAttribute]
+		static Range Prepend(Range range, array<Byte>^ prefix);
+		[System::Runtime::CompilerServices::ExtensionAttribute]
+		static Range IntersectWith(Range a, Range b);
+		[System::Runtime::CompilerServices::ExtensionAttribute]
+		static bool IsEmpty(Range range);
+	private:
+		static System::Nullable<Boundary> MaxLeft(System::Nullable<Boundary> a, System::Nullable<Boundary> b);
+		static System::Nullable<Boundary> MinRight(System::Nullable<Boundary> a, System::Nullable<Boundary> b);
+		static int CompareLeft(System::Nullable<Boundary> a, System::Nullable<Boundary> b);
+		static int CompareRight(System::Nullable<Boundary> a, System::Nullable<Boundary> b);
+		static System::Nullable<Boundary> Prepend(System::Nullable<Boundary> boundary, array<Byte>^ prefix);
+		static System::Nullable<Boundary> Inclusive(System::Nullable<Boundary> boundary);
+	};
+
 	public ref class WiredTigerComponent abstract  {
 	public:
 		WiredTigerComponent();
@@ -97,6 +117,11 @@ namespace WiredTigerNet {
 		virtual void Close() abstract;
 	private:
 		bool disposed_;
+	};
+
+	public enum class Direction {
+		Ascending = 0,
+		Descending = 1,
 	};
 
 	public ref class Cursor : public WiredTigerComponent {
@@ -112,6 +137,8 @@ namespace WiredTigerNet {
 		long GetTotalCount(Range range);
 		array<Byte>^ GetKey();
 		array<Byte>^ GetValue();
+		bool IterationBegin(Range range, Direction direction);
+		bool IterationMove();
 		property CursorSchemaType SchemaType {
 			CursorSchemaType get() override { return schemaType_; }
 		}

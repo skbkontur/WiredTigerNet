@@ -14,7 +14,7 @@ private:
 	const std::string apiName_;
 };
 
-enum Direction {
+enum NativeDirection {
 	Ascending,
 	Descending
 };
@@ -22,8 +22,8 @@ enum Direction {
 class NativeCursor {
 public:
 	~NativeCursor();
-	bool BeginIteration(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, Direction newDirection, bool copyBoundary);
-	bool Move();
+	bool IterationBegin(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, NativeDirection newDirection, bool copyBoundary);
+	bool IterationMove();
 	long GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
 	int Reset();
 	const char* KeyFormat() const { return cursor_->key_format; }
@@ -42,7 +42,7 @@ public:
 private:
 	NativeCursor(WT_CURSOR* cursor);
 	WT_CURSOR* cursor_;
-	Direction direction_;
+	NativeDirection direction_;
 	
 	Byte* boundary_;
 	int boundarySize_;

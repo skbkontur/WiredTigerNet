@@ -15,6 +15,30 @@ using namespace WiredTigerNet;
 		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str())); \
 	} \
 
+#define RANGE_UNFOLD() \
+	pin_ptr<Byte> leftPtr; \
+	int leftSize; \
+	if (range.Left.HasValue && range.Left.Value.Bytes->Length > 0) { \
+		array<Byte>^ bytes = range.Left.Value.Bytes; \
+		leftSize = bytes->Length; \
+		leftPtr = &bytes[0]; \
+				} \
+								else { \
+		leftSize = 0; \
+		leftPtr = nullptr; \
+	} \
+	pin_ptr<Byte> rightPtr; \
+	int rightSize; \
+	if (range.Right.HasValue && range.Right.Value.Bytes->Length) { \
+		array<Byte>^ bytes = range.Right.Value.Bytes; \
+		rightSize = bytes->Length; \
+		rightPtr = &bytes[0]; \
+				} \
+								else { \
+		rightSize = 0; \
+		rightPtr = nullptr; \
+	} \
+
 // *************
 // WiredTigerException
 // *************
@@ -42,7 +66,6 @@ WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ ap
 // *************
 
 WiredTigerComponent::WiredTigerComponent() :disposed_(false) {
-	System::Console::WriteLine("zzz");
 }
 
 WiredTigerComponent::~WiredTigerComponent() {
@@ -157,6 +180,116 @@ array<Byte>^ Range::DecrementBytes(array<Byte>^ source) {
 	return nullptr;
 }
 
+Range RangeOperators::Inclusive(Range range) {
+	return Range(Inclusive(range.Left), Inclusive(range.Right));
+}
+
+Range RangeOperators::Prepend(Range range, array<Byte>^ prefix) {
+	return Range(Prepend(range.Left, prefix), Prepend(range.Right, prefix));
+}
+
+static bool Same(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
+	if (a.HasValue && b.HasValue)
+		return a.Value.Inclusive == b.Value.Inclusive && System::Object::ReferenceEquals(a.Value.Bytes, b.Value.Bytes);
+	return !a.HasValue && !b.HasValue;
+}
+
+Range RangeOperators::IntersectWith(Range a, Range b) {
+	System::Nullable<Boundary> newLeft = MaxLeft(a.Left, b.Left);
+	System::Nullable<Boundary> newRight = MinRight(a.Right, b.Right);
+	if (Same(newLeft, a.Left) && Same(newRight, a.Right))
+		return a;
+	if (Same(newLeft, b.Left) && Same(newRight, b.Right))
+		return b;
+	return Range(newLeft, newRight);
+}
+
+static int CompareBytes(array<Byte>^ a, array<Byte>^ b) {
+	if (a->Length == 0)
+		return b->Length == 0 ? 0 : -1;
+	if (b->Length == 0)
+		return 1;
+	pin_ptr<Byte> aPtr = &a[0];
+	pin_ptr<Byte> bPtr = &b[0];
+	if (a->Length == b->Length)
+		return memcmp(aPtr, bPtr, a->Length);
+	if (a->Length < b->Length) {
+		int result = memcmp(aPtr, bPtr, a->Length);
+		return result != 0 ? result : -1;
+	}
+	int result = memcmp(aPtr, bPtr, b->Length);
+	return result != 0 ? result : 1;
+}
+
+bool RangeOperators::IsEmpty(Range range) {
+	if (!range.Left.HasValue || !range.Right.HasValue)
+		return false;
+	int compareResult = CompareBytes(range.Left.Value.Bytes, range.Right.Value.Bytes);
+	if (compareResult != 0)
+		return compareResult > 0;
+	return !range.Left.Value.Inclusive || !range.Right.Value.Inclusive;
+}
+
+System::Nullable<Boundary> RangeOperators::MaxLeft(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
+	return CompareLeft(a, b) > 0 ? a : b;
+}
+
+System::Nullable<Boundary> RangeOperators::MinRight(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
+	return CompareRight(a, b) < 0 ? a : b;
+}
+
+int RangeOperators::CompareLeft(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
+	if (!a.HasValue && !b.HasValue)
+		return 0;
+	if (!a.HasValue)
+		return -1;
+	if (!b.HasValue)
+		return 1;
+	int result = CompareBytes(a.Value.Bytes, b.Value.Bytes);
+	if (result != 0)
+		return result;
+	if (a.Value.Inclusive == b.Value.Inclusive)
+		return 0;
+	if (a.Value.Inclusive)
+		return -1;
+	return 1;
+}
+
+int RangeOperators::CompareRight(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
+	if (!a.HasValue && !b.HasValue)
+		return 0;
+	if (!a.HasValue)
+		return 1;
+	if (!b.HasValue)
+		return -1;
+	int result = CompareBytes(a.Value.Bytes, b.Value.Bytes);
+	if (result != 0)
+		return result;
+	if (a.Value.Inclusive == b.Value.Inclusive)
+		return 0;
+	if (a.Value.Inclusive)
+		return 1;
+	return -1;
+}
+
+static array<Byte>^ ConcatBytes(array<Byte>^ a, array<Byte>^ b) {
+	if (b->Length == 0)
+		return a;
+	if (a->Length == 0)
+		return b;
+	array<Byte>^ result = gcnew array<Byte>(a->Length + b->Length);
+	System::Array::Copy(a, result, a->Length);
+	System::Array::Copy(b, 0, result, a->Length, b->Length);
+	return result;
+}
+
+System::Nullable<Boundary> RangeOperators::Prepend(System::Nullable<Boundary> boundary, array<Byte>^ prefix) {
+	return !boundary.HasValue ? System::Nullable<Boundary>() : Boundary(ConcatBytes(prefix, boundary.Value.Bytes), boundary.Value.Inclusive);
+}
+
+System::Nullable<Boundary> RangeOperators::Inclusive(System::Nullable<Boundary> boundary) {
+	return !boundary.HasValue || boundary.Value.Inclusive ? boundary : Boundary(boundary.Value.Bytes, true);
+}
 
 // *************
 // Cursor
@@ -228,38 +361,30 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 
 	INVOKE_NATIVE({
 		if (!cursor_->SearchNear(keyPtr, key->Length, &exact))
-			return false;
+		return false;
 		result = exact;
 		return true;
 	})
 }
 
 long Cursor::GetTotalCount(Range range) {
-	pin_ptr<Byte> leftPtr;
-	int leftSize;
-	if (range.Left.HasValue && range.Left.Value.Bytes->Length > 0) {
-		array<Byte>^ bytes = range.Left.Value.Bytes;
-		leftSize = bytes->Length;
-		leftPtr = &bytes[0];
-	}
-	else {
-		leftSize = 0;
-		leftPtr = nullptr;
-	}
-	pin_ptr<Byte> rightPtr;
-	int rightSize;
-	if (range.Right.HasValue && range.Right.Value.Bytes->Length) {
-		array<Byte>^ bytes = range.Right.Value.Bytes;
-		rightSize = bytes->Length;
-		rightPtr = &bytes[0];
-	}
-	else {
-		rightSize = 0;
-		rightPtr = nullptr;
-	}
+	RANGE_UNFOLD(range)
 
-	INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
+		INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
 		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive));
+}
+
+bool Cursor::IterationBegin(Range range, Direction direction) {
+	RANGE_UNFOLD(range)
+
+		NativeDirection nativeDirection = direction == Direction::Ascending ? Ascending : Descending;
+
+	INVOKE_NATIVE(return cursor_->IterationBegin(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
+		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive, nativeDirection, true));
+}
+
+bool Cursor::IterationMove() {
+	INVOKE_NATIVE(return cursor_->IterationMove())
 }
 
 array<Byte>^ Cursor::GetKey() {
@@ -278,7 +403,7 @@ array<Byte>^ Cursor::GetValue() {
 		throw gcnew WiredTigerException("for current schema [CursorSchemaType.KeyOnly] value is not defined");
 	WT_ITEM item = { 0 };
 	INVOKE_NATIVE(cursor_->GetValue(&item))
-	array<Byte>^ result = gcnew array<Byte>(item.size);
+		array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
 		memcpy(resultPtr, item.data, item.size);

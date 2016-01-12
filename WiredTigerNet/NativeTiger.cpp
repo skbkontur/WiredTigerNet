@@ -8,7 +8,7 @@ inline int min(int a, int b) {
 NativeCursor::NativeCursor(WT_CURSOR* cursor) :cursor_(cursor), boundary_(nullptr) {
 }
 
-bool NativeCursor::BeginIteration(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, Direction newDirection, bool copyBoundary) {
+bool NativeCursor::IterationBegin(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, NativeDirection newDirection, bool copyBoundary) {
 	int exact;
 	if (newDirection == Ascending) {
 		if (left != nullptr) {
@@ -120,15 +120,15 @@ NativeCursor::~NativeCursor() {
 
 long NativeCursor::GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
 	long result = 0;
-	if (BeginIteration(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending, false))
+	if (IterationBegin(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending, false))
 		do
 		{
 			result++;
-		} while (Move());
+		} while (IterationMove());
 	return result;
 }
 
-bool NativeCursor::Move() {
+bool NativeCursor::IterationMove() {
 	bool moved = direction_ == Ascending ? Next() : Prev();
 	return moved && Within();
 }
