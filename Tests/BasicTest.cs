@@ -235,6 +235,22 @@ namespace Tests
 		}
 
 		[Test]
+		public void GetTotalCountForNonInclusiveRightBoundary()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", "key_format=u,value_format=,columns=(k)");
+
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.Insert("a");
+
+				using (var cursor = session.OpenCursor("table:test"))
+					Assert.That(cursor.GetTotalCount(Range.RightOpenSegment("a".B(), "ab".B())), Is.EqualTo(1));
+			}
+		}
+
+		[Test]
 		public void HandleCrashesOfErrorHandler()
 		{
 			var eventHandler = new CrashingEventHandler();

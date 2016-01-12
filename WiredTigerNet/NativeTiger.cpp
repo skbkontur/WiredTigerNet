@@ -12,7 +12,7 @@ inline int min(int a, int b) {
 
 class NativeCursor {
 public:
-	NativeCursor(WT_CURSOR* cursor) :cursor_(cursor), currentKey_(nullptr) {
+	NativeCursor(WT_CURSOR* cursor) :cursor_(cursor) {
 	}
 
 	long GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
@@ -51,61 +51,28 @@ public:
 			boundarySize_ = leftSize;
 			boundaryInclusive_ = leftInclusive;
 		}
-		GetKeyWithCopy(&currentKey_, &currentKeySize_);
 		direction_ = newDirection;
 		return Within();
 	}
 
 	bool Move() {
 		bool moved = direction_ == Ascending ? Next() : Prev();
-		if (!moved)
-			return false;
-		ReadKey();
-		return Within();
-	}
-
-	~NativeCursor() {
-		if (currentKey_ != nullptr) {
-			delete[] currentKey_;
-			currentKey_ = nullptr;
-		}
-		cursor_->reset(cursor_);
+		return moved && Within();
 	}
 private:
 	WT_CURSOR* cursor_;
 	Direction direction_;
-	
+
 	Byte* boundary_;
 	int boundarySize_;
 	bool boundaryInclusive_;
-
-	Byte* currentKey_;
-	int currentKeySize_;
 
 	void SetKey(Byte* data, int length) {
 		WT_ITEM item = { 0 };
 		item.data = (void*)data;
 		item.size = length;
 		cursor_->set_key(cursor_, &item);
-	}
-
-	void GetKeyWithCopy(Byte** data, int* length) {
-		WT_ITEM item = { 0 };
-		int r = cursor_->get_key(cursor_, &item);
-		if (r != 0)
-			throw NativeWiredTigerApiException(r, "cursor->get_key");
-		*data = new Byte[item.size];
-		*length = item.size;
-		memcpy(*data, item.data, item.size);
-	}
-
-	void ReadKey() {
-		if (currentKey_ != nullptr) {
-			delete[] currentKey_;
-			currentKey_ = nullptr;
-		}
-		GetKeyWithCopy(&currentKey_, &currentKeySize_);
-	}
+	}	
 
 	bool SearchNear(int* exact) {
 		int r = cursor_->search_near(cursor_, exact);
@@ -118,18 +85,18 @@ private:
 
 	bool Next() {
 		int r = cursor_->next(cursor_);
-		if (r == WT_NOTFOUND) 
+		if (r == WT_NOTFOUND)
 			return false;
-		if (r != 0) 
+		if (r != 0)
 			throw NativeWiredTigerApiException(r, "cursor->next");
 		return true;
 	}
 
 	bool Prev() {
 		int r = cursor_->prev(cursor_);
-		if (r == WT_NOTFOUND) 
+		if (r == WT_NOTFOUND)
 			return false;
-		if (r != 0) 
+		if (r != 0)
 			throw NativeWiredTigerApiException(r, "cursor->prev");
 		return true;
 	}
@@ -137,7 +104,13 @@ private:
 	bool Within() {
 		if (boundary_ == nullptr)
 			return true;
-		int result = memcmp(currentKey_, boundary_, min(currentKeySize_, boundarySize_));
+		WT_ITEM item = { 0 };
+		int r = cursor_->get_key(cursor_, &item);
+		if (r != 0)
+			throw NativeWiredTigerApiException(r, "cursor->get_key");
+		int result = memcmp(item.data, boundary_, min(item.size, boundarySize_));
+		if (result == 0 && item.size != boundarySize_)
+			result = item.size < boundarySize_ ? -1 : 1;
 		if (result == 0)
 			return boundaryInclusive_;
 		return direction_ == Ascending ? result < 0 : result > 0;
