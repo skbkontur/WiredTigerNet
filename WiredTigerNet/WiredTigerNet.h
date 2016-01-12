@@ -61,6 +61,7 @@ namespace WiredTigerNet {
 		void Checkpoint();
 		void Create(System::String^ name, System::String^ config);
 		Cursor^ OpenCursor(System::String^ name);
+		Cursor^ OpenCursor(System::String^ name, System::String^ config);
 	internal:
 		Session(WT_SESSION *session);
 	private:

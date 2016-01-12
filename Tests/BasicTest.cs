@@ -50,6 +50,27 @@ namespace Tests
 		}
 
 		[Test]
+		public void BulkInsert()
+		{
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", null);
+				using (var cursor = session.OpenCursor("table:test", "bulk=true"))
+				{
+					cursor.Insert("b", "k");
+					var exception = Assert.Throws<WiredTigerApiException>(() => cursor.Insert("a", "k"));
+					Assert.That(exception.ApiName, Is.EqualTo("cursor->insert"));
+					Assert.That(exception.ErrorCode, Is.EqualTo(22));
+					Assert.That(exception.Message, Is.EqualTo("error code [22], error message [Invalid argument], api name [cursor->insert]"));
+					cursor.Insert("c", "k");
+				}
+				using (var cursor = session.OpenCursor("table:test"))
+					cursor.AssertAllKeysAndValues("b->k", "c->k");
+			}
+		}
+
+		[Test]
 		public void SimpleWithTran()
 		{
 			using (var connection = Connection.Open(testDirectory, "create", null))

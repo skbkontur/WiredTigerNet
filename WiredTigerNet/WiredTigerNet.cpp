@@ -12,7 +12,7 @@ using namespace WiredTigerNet;
 
 static System::String^ FormatMessage(int errorCode, System::String^ apiName) {
 	const char* err = wiredtiger_strerror(errorCode);
-	return System::String::Format("error code [{0}], error message [{1}], api name [{2}]", 
+	return System::String::Format("error code [{0}], error message [{1}], api name [{2}]",
 		errorCode, gcnew System::String(err), apiName);
 }
 
@@ -83,7 +83,7 @@ void Cursor::Reset() {
 bool Cursor::Search(array<Byte>^ key) {
 	pin_ptr<Byte> keyPtr = &key[0];
 	int r = NativeSearch(_cursor, keyPtr, key->Length);
-	if (r == WT_NOTFOUND) 
+	if (r == WT_NOTFOUND)
 		return false;
 	if (r != 0)
 		throw gcnew WiredTigerApiException(r, "cursor->search");
@@ -224,6 +224,16 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 	return gcnew Cursor(cursor);
 }
 
+Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
+	WT_CURSOR* cursor;
+	std::string nameStr(str_or_die(name, "name"));
+	std::string configStr(str_or_die(config, "config"));
+	int r = session_->open_cursor(session_, nameStr.c_str(), nullptr, configStr.c_str(), &cursor);
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->open_cursor");
+	return gcnew Cursor(cursor);
+}
+
 // *************
 // Connection
 // *************
@@ -232,8 +242,8 @@ static T to_pointer(System::Delegate^ d) {
 	return (T)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(d).ToPointer();
 }
 
-Connection::Connection(IEventHandler^ eventHandler) :
-	eventHandler_(eventHandler),
+Connection::Connection(IEventHandler^ eventHandler)
+	:eventHandler_(eventHandler),
 	onErrorDelegate_(gcnew OnErrorDelegate(this, &Connection::OnError)),
 	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)) {
 	if (eventHandler_ == nullptr)
@@ -241,10 +251,10 @@ Connection::Connection(IEventHandler^ eventHandler) :
 	else {
 		typedef int(*handle_error_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char *message);
 		typedef int(*handle_message_t)(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char *message);
-		nativeEventHandler_ = new WT_EVENT_HANDLER { 
+		nativeEventHandler_ = new WT_EVENT_HANDLER{
 			to_pointer<handle_error_t>(onErrorDelegate_),
 			to_pointer<handle_message_t>(onMessageDelegate_),
-			nullptr, 
+			nullptr,
 			nullptr };
 	}
 }
