@@ -7,6 +7,14 @@
 
 using namespace WiredTigerNet;
 
+#define INVOKE_NATIVE(f) \
+	try { \
+		f; \
+	} \
+	catch (const NativeWiredTigerApiException& e) { \
+		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str())); \
+	} \
+
 // *************
 // WiredTigerException
 // *************
@@ -218,7 +226,6 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 }
 
 long Cursor::GetTotalCount(Range range) {
-	
 	pin_ptr<Byte> leftPtr;
 	int leftSize;
 	if (range.Left.HasValue && range.Left.Value.Bytes->Length > 0) {
@@ -242,13 +249,8 @@ long Cursor::GetTotalCount(Range range) {
 		rightPtr = nullptr;
 	}
 
-	try {
-		return NativeGetTotalCount(cursor_, leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
-			rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive);
-	}
-	catch (const NativeWiredTigerApiException& e) {
-		throw gcnew WiredTigerApiException(e.ErrorCode(), gcnew System::String(e.ApiName().c_str()));
-	}
+	INVOKE_NATIVE(return NativeGetTotalCount(cursor_, leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive, 
+		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive));
 }
 
 array<Byte>^ Cursor::GetKey() {
