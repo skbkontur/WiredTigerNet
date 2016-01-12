@@ -188,20 +188,8 @@ Range RangeOperators::Prepend(Range range, array<Byte>^ prefix) {
 	return Range(Prepend(range.Left, prefix), Prepend(range.Right, prefix));
 }
 
-static bool Same(System::Nullable<Boundary> a, System::Nullable<Boundary> b) {
-	if (a.HasValue && b.HasValue)
-		return a.Value.Inclusive == b.Value.Inclusive && System::Object::ReferenceEquals(a.Value.Bytes, b.Value.Bytes);
-	return !a.HasValue && !b.HasValue;
-}
-
 Range RangeOperators::IntersectWith(Range a, Range b) {
-	System::Nullable<Boundary> newLeft = MaxLeft(a.Left, b.Left);
-	System::Nullable<Boundary> newRight = MinRight(a.Right, b.Right);
-	if (Same(newLeft, a.Left) && Same(newRight, a.Right))
-		return a;
-	if (Same(newLeft, b.Left) && Same(newRight, b.Right))
-		return b;
-	return Range(newLeft, newRight);
+	return Range(MaxLeft(a.Left, b.Left), MinRight(a.Right, b.Right));
 }
 
 static int CompareBytes(array<Byte>^ a, array<Byte>^ b) {
