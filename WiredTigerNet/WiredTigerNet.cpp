@@ -349,7 +349,7 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 
 	INVOKE_NATIVE({
 		if (!cursor_->SearchNear(keyPtr, key->Length, &exact))
-		return false;
+			return false;
 		result = exact;
 		return true;
 	})
@@ -391,7 +391,7 @@ array<Byte>^ Cursor::GetValue() {
 		throw gcnew WiredTigerException("for current schema [CursorSchemaType.KeyOnly] value is not defined");
 	WT_ITEM item = { 0 };
 	INVOKE_NATIVE(cursor_->GetValue(&item))
-		array<Byte>^ result = gcnew array<Byte>(item.size);
+	array<Byte>^ result = gcnew array<Byte>(item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
 		memcpy(resultPtr, item.data, item.size);
