@@ -14,7 +14,7 @@ namespace WiredTigerNet {
 			int get() { return errorCode_; }
 		}
 		property System::String^ ApiName {
-			System::String^ get() override { return apiName_; }
+			System::String^ get() { return apiName_; }
 		}
 	private:
 		int errorCode_;
@@ -46,10 +46,10 @@ namespace WiredTigerNet {
 	public:
 		Boundary(array<Byte>^ bytes, bool inclusive);
 		property array<Byte>^ Bytes {
-			array<Byte>^ get() override { return bytes_; }
+			array<Byte>^ get() { return bytes_; }
 		}
 		property bool Inclusive {
-			bool get() override { return inclusive_; }
+			bool get() { return inclusive_; }
 		}
 	private:
 		array<Byte>^ bytes_;
@@ -60,10 +60,10 @@ namespace WiredTigerNet {
 	public:
 		Range(System::Nullable<Boundary> left, System::Nullable<Boundary> right);
 		property System::Nullable<Boundary> Left {
-			System::Nullable<Boundary> get() override { return left_; }
+			System::Nullable<Boundary> get() { return left_; }
 		}
 		property System::Nullable<Boundary> Right {
-			System::Nullable<Boundary> get() override { return right_; }
+			System::Nullable<Boundary> get() { return right_; }
 		}
 		static Range Segment(array<Byte>^ left, array<Byte>^ right);
 		static Range PositiveRay(array<Byte>^ left);
@@ -140,7 +140,7 @@ namespace WiredTigerNet {
 		bool IterationBegin(Range range, Direction direction);
 		bool IterationMove();
 		property CursorSchemaType SchemaType {
-			CursorSchemaType get() override { return schemaType_; }
+			CursorSchemaType get() { return schemaType_; }
 		}
 	protected:
 		virtual void Close() override;
@@ -156,7 +156,7 @@ namespace WiredTigerNet {
 		void BeginTran();
 		void CommitTran();
 		void RollbackTran();
-		void Checkpoint();
+		void Checkpoint(System::String^ config);
 		void Create(System::String^ name, System::String^ config);
 		Cursor^ OpenCursor(System::String^ name);
 		Cursor^ OpenCursor(System::String^ name, System::String^ config);

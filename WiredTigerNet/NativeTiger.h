@@ -9,6 +9,7 @@ public:
 	}
 	const int ErrorCode() const { return errorCode_; }
 	const std::string& ApiName() const { return apiName_; }
+	NativeWiredTigerApiException& operator=(const NativeWiredTigerApiException&) = delete;
 private:
 	int errorCode_;
 	const std::string apiName_;

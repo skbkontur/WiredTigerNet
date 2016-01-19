@@ -75,7 +75,7 @@ bool NativeCursor::Within() {
 		return true;
 	WT_ITEM item = { 0 };
 	GetKey(&item);
-	int result = memcmp(item.data, boundary_, min(item.size, boundarySize_));
+	int result = memcmp(item.data, boundary_, min((int)item.size, boundarySize_));
 	if (result == 0 && item.size != boundarySize_)
 		result = item.size < boundarySize_ ? -1 : 1;
 	if (result == 0)
@@ -104,6 +104,7 @@ int NativeCursor::Reset() {
 	if (ownsBoundary_)
 		delete[] boundary_;
 	boundary_ = nullptr;
+	return 0;
 }
 
 NativeCursor::~NativeCursor() {

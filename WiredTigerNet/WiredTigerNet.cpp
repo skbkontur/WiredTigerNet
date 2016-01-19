@@ -356,14 +356,14 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 }
 
 long Cursor::GetTotalCount(Range range) {
-	RANGE_UNWRAP(range)
+	RANGE_UNWRAP()
 
 	INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
 		rightPtr, rightSize, range.Right.HasValue && range.Right.Value.Inclusive));
 }
 
 bool Cursor::IterationBegin(Range range, Direction direction) {
-	RANGE_UNWRAP(range)
+	RANGE_UNWRAP()
 
 	NativeDirection nativeDirection = direction == Direction::Ascending ? Ascending : Descending;
 
@@ -378,7 +378,7 @@ bool Cursor::IterationMove() {
 array<Byte>^ Cursor::GetKey() {
 	WT_ITEM item = { 0 };
 	INVOKE_NATIVE(cursor_->GetKey(&item));
-	array<Byte>^ result = gcnew array<Byte>(item.size);
+	array<Byte>^ result = gcnew array<Byte>((int)item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
 		memcpy(resultPtr, item.data, item.size);
@@ -391,7 +391,7 @@ array<Byte>^ Cursor::GetValue() {
 		throw gcnew WiredTigerException("for current schema [CursorSchemaType.KeyOnly] value is not defined");
 	WT_ITEM item = { 0 };
 	INVOKE_NATIVE(cursor_->GetValue(&item))
-	array<Byte>^ result = gcnew array<Byte>(item.size);
+	array<Byte>^ result = gcnew array<Byte>((int)item.size);
 	if (item.size > 0) {
 		pin_ptr<Byte> resultPtr = &result[0];
 		memcpy(resultPtr, item.data, item.size);
@@ -431,12 +431,6 @@ void Session::RollbackTran() {
 		throw gcnew WiredTigerApiException(r, "session->rollback_transaction");
 }
 
-void Session::Checkpoint() {
-	int r = session_->checkpoint(session_, nullptr);
-	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->checkpoint");
-}
-
 static std::string str_or_empty(System::String^ s) {
 	std::string result(msclr::interop::marshal_as<std::string>(s == nullptr ? "" : s));
 	return result;
@@ -447,6 +441,13 @@ static std::string str_or_die(System::String^ s, System::String^ parameterName) 
 		throw gcnew System::InvalidOperationException("parameter [" + parameterName + "] can't be null");
 	std::string result(msclr::interop::marshal_as<std::string>(s));
 	return result;
+}
+
+void Session::Checkpoint(System::String^ config) {
+	std::string configStr(str_or_empty(config));
+	int r = session_->checkpoint(session_, configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->checkpoint");
 }
 
 void Session::Create(System::String^ name, System::String^ config) {
@@ -536,7 +537,7 @@ static bool can_use_referenced_objects() {
 	return !isFinalizingForUnload && !hasShutdownStarted;
 }
 
-int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message) {
+int Connection::OnError(WT_EVENT_HANDLER *, WT_SESSION *, int error, const char* message) {
 	if (!can_use_referenced_objects())
 		return -2;
 	try {
@@ -544,20 +545,20 @@ int Connection::OnError(WT_EVENT_HANDLER *handler, WT_SESSION *session, int erro
 		eventHandler_->OnError(error, gcnew System::String(err), gcnew System::String(message));
 		return 0;
 	}
-	catch (System::Exception^ e) {
+	catch (...) {
 		//do not propagate managed exceptions as it can violate internal wt invariants
 		return -1;
 	}
 }
 
-int Connection::OnMessage(WT_EVENT_HANDLER *handler, WT_SESSION *session, const char* message) {
+int Connection::OnMessage(WT_EVENT_HANDLER *, WT_SESSION *, const char* message) {
 	if (!can_use_referenced_objects())
 		return -2;
 	try {
 		eventHandler_->OnMessage(gcnew System::String(message));
 		return 0;
 	}
-	catch (System::Exception^ e) {
+	catch (...) {
 		//do not propagate managed exceptions as it can violate internal wt invariants
 		return -1;
 	}
