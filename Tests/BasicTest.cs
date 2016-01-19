@@ -261,5 +261,18 @@ namespace Tests
 				.Or.StringContaining("найти указанный файл"));
 			Assert.That(exception.Message, Is.StringContaining(expectedErrorCode.ToString(CultureInfo.InvariantCulture)));
 		}
+
+		[Test]
+		public void HandleGracefullyOpenCursorCrash()
+		{
+			var handler = new LoggingEventHandler();
+			using (var connection = Connection.Open(testDirectory, "create", handler))
+			using (var session = connection.OpenSession())
+			{
+				var exception = Assert.Throws<WiredTigerApiException>(() => session.OpenCursor("table:test", "checkpoint=inexistent"));
+				Assert.That(exception.Message, Is.StringContaining("error code [2]"));
+				Assert.That(exception.Message, Is.StringContaining("api name [session->open_cursor]"));
+			}
+		}
 	}
 }

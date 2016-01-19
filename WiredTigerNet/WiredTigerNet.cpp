@@ -466,7 +466,9 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 	std::string nameStr(str_or_die(name, "name"));
 	std::string configStr(str_or_die(config, "config"));
-	return gcnew Cursor(OpenNativeCursor(session_, nameStr.c_str(), configStr.c_str()));
+	NativeCursor* nativeCursor;
+	INVOKE_NATIVE(nativeCursor = OpenNativeCursor(session_, nameStr.c_str(), configStr.c_str()))
+	return gcnew Cursor(nativeCursor);
 }
 
 // *************
