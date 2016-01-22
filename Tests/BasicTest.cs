@@ -1,6 +1,8 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 using WiredTigerNet;
 
@@ -45,6 +47,37 @@ namespace Tests
 
 				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
 					cursor.AssertKeyValues("k", "a", "b");
+			}
+		}
+
+		[Test]
+		public void CanHandleStringKeys()
+		{
+			const string testString = "test string";
+
+			using (var connection = Connection.Open(testDirectory, "create", null))
+			using (var session = connection.OpenSession())
+			{
+				session.Create("table:test", "key_format=S,value_format=,columns=(k)");
+				using (var cursor = session.OpenCursor("table:test"))
+				{
+					var testStringNullTerminatedBytes = new byte[Encoding.ASCII.GetByteCount(testString) + 1];
+					var writtenBytesCount = Encoding.ASCII.GetBytes(testString, 0, testString.Length, testStringNullTerminatedBytes, 0);
+					if (writtenBytesCount != testString.Length)
+						throw new InvalidOperationException();
+					testStringNullTerminatedBytes[testStringNullTerminatedBytes.Length - 1] = 0;
+					cursor.Insert(testStringNullTerminatedBytes);
+				}
+			}
+
+			using (var connection = Connection.Open(testDirectory, null, null))
+			using (var session = connection.OpenSession())
+			using (var cursor = session.OpenCursor("table:test"))
+			{
+				if (!cursor.Next())
+					throw new InvalidOperationException();
+				var keyBytes = cursor.GetKey();
+				Assert.That(Encoding.ASCII.GetString(keyBytes), Is.EqualTo(testString));
 			}
 		}
 
@@ -143,7 +176,7 @@ namespace Tests
 			Assert.That(exception.ApiName, Is.EqualTo("wiredtiger_open"));
 			Assert.That(exception.ErrorCode, Is.EqualTo(expectedErrorCode));
 			Assert.That(eventHandler.loggedEvents.Count, Is.EqualTo(1));
-			var loggedEvent = (LoggingEventHandler.ErrorEvent) eventHandler.loggedEvents.Single();
+			var loggedEvent = (LoggingEventHandler.ErrorEvent)eventHandler.loggedEvents.Single();
 			Assert.That(loggedEvent.errorCode, Is.EqualTo(expectedErrorCode));
 			Assert.That(loggedEvent.errorString, Is.StringContaining("The system cannot find the path specified")
 				.Or.StringContaining("найти указанный файл"));
@@ -175,7 +208,7 @@ namespace Tests
 				}
 			}
 		}
-		
+
 		[Test]
 		public void CheckKeyAndValueCursorSchema()
 		{

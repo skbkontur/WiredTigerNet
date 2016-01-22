@@ -43,8 +43,8 @@ public:
 private:
 	NativeCursor(WT_CURSOR* cursor);
 	WT_CURSOR* cursor_;
-	NativeDirection direction_;
-	
+	bool keyIsString_;
+	NativeDirection direction_;	
 	Byte* boundary_;
 	int boundarySize_;
 	bool boundaryInclusive_;

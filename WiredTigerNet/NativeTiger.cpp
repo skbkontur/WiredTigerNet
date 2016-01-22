@@ -5,7 +5,10 @@ inline int min(int a, int b) {
 	return a < b ? a : b;
 }
 
-NativeCursor::NativeCursor(WT_CURSOR* cursor) :cursor_(cursor), boundary_(nullptr) {
+NativeCursor::NativeCursor(WT_CURSOR* cursor) :
+	cursor_(cursor), 
+	boundary_(nullptr),
+	keyIsString_(strcmp(cursor_->key_format, "S") == 0) {
 }
 
 bool NativeCursor::IterationBegin(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, NativeDirection newDirection, bool copyBoundary) {
@@ -135,9 +138,19 @@ bool NativeCursor::IterationMove() {
 }
 
 void NativeCursor::GetKey(WT_ITEM* target) {
-	int r = cursor_->get_key(cursor_, target);
-	if (r != 0)
-		throw NativeWiredTigerApiException(r, "cursor->get_key");
+	if (keyIsString_) {
+		const char* s;
+		int r = cursor_->get_key(cursor_, &s);
+		if (r != 0)
+			throw NativeWiredTigerApiException(r, "cursor->get_key");
+		target->data = s;
+		target->size = strlen(s);
+	}
+	else {
+		int r = cursor_->get_key(cursor_, target);
+		if (r != 0)
+			throw NativeWiredTigerApiException(r, "cursor->get_key");
+	}
 }
 
 void NativeCursor::GetValue(WT_ITEM* target) {
@@ -170,10 +183,16 @@ void NativeCursor::Insert(Byte* key, int keyLength) {
 }
 
 void NativeCursor::SetKey(Byte* data, int length) {
-	WT_ITEM item = { 0 };
-	item.data = (void*)data;
-	item.size = length;
-	cursor_->set_key(cursor_, &item);
+	if (keyIsString_) {
+		const char* s = (const char *)data;
+		cursor_->set_key(cursor_, s);
+	}
+	else {
+		WT_ITEM item = { 0 };
+		item.data = (void*)data;
+		item.size = length;
+		cursor_->set_key(cursor_, &item);
+	}
 }
 
 void NativeCursor::SetValue(Byte* data, int length) {
