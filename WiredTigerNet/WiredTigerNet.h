@@ -110,13 +110,14 @@ namespace WiredTigerNet {
 
 	public ref class WiredTigerComponent abstract  {
 	public:
-		WiredTigerComponent();
+		WiredTigerComponent(bool closeFromFinalizer);
 		~WiredTigerComponent();
 		!WiredTigerComponent();
 	protected:
 		virtual void Close() abstract;
 	private:
 		bool disposed_;
+		bool closeFromFinalizer_;
 	};
 
 	public enum class Direction {

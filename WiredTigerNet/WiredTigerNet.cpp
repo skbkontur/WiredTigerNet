@@ -65,7 +65,7 @@ WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ ap
 // WiredTigerComponent
 // *************
 
-WiredTigerComponent::WiredTigerComponent() :disposed_(false) {
+WiredTigerComponent::WiredTigerComponent(bool closeFromFinalizer) :disposed_(false), closeFromFinalizer_(closeFromFinalizer) {
 }
 
 WiredTigerComponent::~WiredTigerComponent() {
@@ -81,7 +81,7 @@ WiredTigerComponent::~WiredTigerComponent() {
 }
 
 WiredTigerComponent::!WiredTigerComponent() {
-	if (disposed_)
+	if (disposed_ || !closeFromFinalizer_)
 		return;
 	try {
 		this->Close();
@@ -287,7 +287,7 @@ static bool is_raw_bytes(const char* format) {
 	return strcmp(format, "u") == 0 || strcmp(format, "U") == 0;
 }
 
-Cursor::Cursor(NativeCursor* cursor) : cursor_(cursor) {
+Cursor::Cursor(NativeCursor* cursor) : cursor_(cursor), WiredTigerComponent(false) {
 	if (is_raw_bytes(cursor->KeyFormat()) && is_raw_bytes(cursor->ValueFormat()))
 		schemaType_ = CursorSchemaType::KeyAndValue;
 	else if (is_raw_bytes(cursor->KeyFormat()) && strcmp(cursor->ValueFormat(), "") == 0)
@@ -405,7 +405,7 @@ array<Byte>^ Cursor::GetValue() {
 // Session
 // *************
 
-Session::Session(WT_SESSION *session) : session_(session) {
+Session::Session(WT_SESSION *session) : session_(session), WiredTigerComponent(false) {
 }
 
 void Session::Close() {
@@ -486,7 +486,8 @@ static T to_pointer(System::Delegate^ d) {
 Connection::Connection(IEventHandler^ eventHandler)
 	:eventHandler_(eventHandler),
 	onErrorDelegate_(gcnew OnErrorDelegate(this, &Connection::OnError)),
-	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)) {
+	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)),
+	WiredTigerComponent(true) {
 	if (eventHandler_ == nullptr)
 		nativeEventHandler_ = nullptr;
 	else {

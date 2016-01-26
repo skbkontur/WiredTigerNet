@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using NUnit.Framework;
 using WiredTigerNet;
@@ -48,6 +49,32 @@ namespace Tests
 				using (var cursor = session.OpenCursor("index:test:byScopeKey(key)"))
 					cursor.AssertKeyValues("k", "a", "b");
 			}
+		}
+
+		[Test]
+		public void FinalizeCanTakeOverForForgottenDispose()
+		{
+			var connection = Connection.Open(testDirectory, "create", null);
+			var session = connection.OpenSession();
+			session.Create("table:test", null);
+			var cursor = session.OpenCursor("table:test");
+			cursor.Insert("a", "b");
+
+			//emulate standard finalization with random ordering
+			CallFinalizer(session);
+			CallFinalizer(connection);
+			CallFinalizer(cursor);
+
+			using(var connection2 = Connection.Open(testDirectory, "create", null))
+			using (var session2 = connection2.OpenSession())
+			using (var cursor2 = session2.OpenCursor("table:test"))
+				cursor2.AssertAllKeysAndValues("a->b");
+		}
+
+		public static void CallFinalizer(object target)
+		{
+			var finalizer = target.GetType().GetMethod("Finalize", BindingFlags.NonPublic | BindingFlags.Instance);
+			finalizer.Invoke(target, new object[0]);
 		}
 
 		[Test]
