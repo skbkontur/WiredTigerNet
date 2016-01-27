@@ -110,14 +110,16 @@ namespace WiredTigerNet {
 
 	public ref class WiredTigerComponent abstract  {
 	public:
-		WiredTigerComponent(bool closeFromFinalizer);
+		WiredTigerComponent(WiredTigerComponent^ parent);
 		~WiredTigerComponent();
 		!WiredTigerComponent();
 	protected:
 		virtual void Close() abstract;
+	internal:
+		bool IsDisposed();
 	private:
 		bool disposed_;
-		bool closeFromFinalizer_;
+		WiredTigerComponent^ parent_;
 	};
 
 	public enum class Direction {
@@ -146,7 +148,7 @@ namespace WiredTigerNet {
 	protected:
 		virtual void Close() override;
 	internal:
-		Cursor(NativeCursor* cursor);
+		Cursor(NativeCursor* cursor, WiredTigerComponent^ session);
 	private:
 		NativeCursor* cursor_;
 		CursorSchemaType schemaType_;
@@ -164,7 +166,7 @@ namespace WiredTigerNet {
 	protected:
 		virtual void Close() override;
 	internal:
-		Session(WT_SESSION *session);
+		Session(WT_SESSION *session, WiredTigerComponent^ connection);
 	private:
 		WT_SESSION* session_;
 	};

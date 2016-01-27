@@ -65,11 +65,11 @@ WiredTigerApiException::WiredTigerApiException(int errorCode, System::String^ ap
 // WiredTigerComponent
 // *************
 
-WiredTigerComponent::WiredTigerComponent(bool closeFromFinalizer) :disposed_(false), closeFromFinalizer_(closeFromFinalizer) {
+WiredTigerComponent::WiredTigerComponent(WiredTigerComponent^ parent) :disposed_(false), parent_(parent) {
 }
 
 WiredTigerComponent::~WiredTigerComponent() {
-	if (disposed_)
+	if (IsDisposed())
 		return;
 	try {
 		this->Close();
@@ -81,7 +81,7 @@ WiredTigerComponent::~WiredTigerComponent() {
 }
 
 WiredTigerComponent::!WiredTigerComponent() {
-	if (disposed_ || !closeFromFinalizer_)
+	if (IsDisposed())
 		return;
 	try {
 		this->Close();
@@ -91,6 +91,9 @@ WiredTigerComponent::!WiredTigerComponent() {
 	}
 }
 
+bool WiredTigerComponent::IsDisposed() {
+	return disposed_ || (parent_ != nullptr && parent_->IsDisposed());
+}
 
 // *************
 // Boundary/Range
@@ -287,7 +290,7 @@ static bool is_raw_bytes(const char* format) {
 	return strcmp(format, "u") == 0 || strcmp(format, "U") == 0;
 }
 
-Cursor::Cursor(NativeCursor* cursor) : cursor_(cursor), WiredTigerComponent(false) {
+Cursor::Cursor(NativeCursor* cursor, WiredTigerComponent^ session) : cursor_(cursor), WiredTigerComponent(session) {
 	if (is_raw_bytes(cursor->KeyFormat()) && is_raw_bytes(cursor->ValueFormat()))
 		schemaType_ = CursorSchemaType::KeyAndValue;
 	else if (is_raw_bytes(cursor->KeyFormat()) && strcmp(cursor->ValueFormat(), "") == 0)
@@ -405,7 +408,7 @@ array<Byte>^ Cursor::GetValue() {
 // Session
 // *************
 
-Session::Session(WT_SESSION *session) : session_(session), WiredTigerComponent(false) {
+Session::Session(WT_SESSION *session, WiredTigerComponent^ connection) : session_(session), WiredTigerComponent(connection) {
 }
 
 void Session::Close() {
@@ -464,7 +467,7 @@ Cursor^ Session::OpenCursor(System::String^ name) {
 	std::string nameStr(str_or_die(name, "name"));
 	NativeCursor* nativeCursor;
 	INVOKE_NATIVE(nativeCursor = OpenNativeCursor(session_, nameStr.c_str(), nullptr))
-	return gcnew Cursor(nativeCursor);
+	return gcnew Cursor(nativeCursor, this);
 }
 
 Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
@@ -472,7 +475,7 @@ Cursor^ Session::OpenCursor(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_die(config, "config"));
 	NativeCursor* nativeCursor;
 	INVOKE_NATIVE(nativeCursor = OpenNativeCursor(session_, nameStr.c_str(), configStr.c_str()))
-	return gcnew Cursor(nativeCursor);
+	return gcnew Cursor(nativeCursor, this);
 }
 
 // *************
@@ -487,7 +490,7 @@ Connection::Connection(IEventHandler^ eventHandler)
 	:eventHandler_(eventHandler),
 	onErrorDelegate_(gcnew OnErrorDelegate(this, &Connection::OnError)),
 	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)),
-	WiredTigerComponent(true) {
+	WiredTigerComponent(nullptr) {
 	if (eventHandler_ == nullptr)
 		nativeEventHandler_ = nullptr;
 	else {
@@ -518,7 +521,7 @@ Session^ Connection::OpenSession() {
 	int r = connection_->open_session(connection_, nullptr, nullptr, &session);
 	if (r != 0)
 		throw gcnew WiredTigerApiException(r, "connection->open_session");
-	return gcnew Session(session);
+	return gcnew Session(session, this);
 }
 
 System::String^ Connection::GetHome() {

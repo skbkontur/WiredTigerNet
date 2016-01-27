@@ -345,5 +345,23 @@ namespace Tests
 				}
 			}
 		}
+
+		[Test]
+		public void CanDisposeWiredTigerComponentsInAnyOrder()
+		{
+			var connection = Connection.Open(testDirectory, "create", null);
+			var session = connection.OpenSession();
+			session.Create("table:test", null);
+			var cursor = session.OpenCursor("table:test");
+			cursor.Insert("a", "b");
+			session.Dispose();
+			connection.Dispose();
+			cursor.Dispose();
+
+			using (var connection2 = Connection.Open(testDirectory, "create", null))
+			using (var session2 = connection2.OpenSession())
+			using (var cursor2 = session2.OpenCursor("table:test"))
+				cursor2.AssertAllKeysAndValues("a->b");
+		}
 	}
 }
