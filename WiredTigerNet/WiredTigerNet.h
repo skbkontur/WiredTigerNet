@@ -160,6 +160,7 @@ namespace WiredTigerNet {
 		void CommitTran();
 		void RollbackTran();
 		void Checkpoint(System::String^ config);
+		void Compact(System::String^ name, System::String^ config);
 		void Create(System::String^ name, System::String^ config);
 		Cursor^ OpenCursor(System::String^ name);
 		Cursor^ OpenCursor(System::String^ name, System::String^ config);
