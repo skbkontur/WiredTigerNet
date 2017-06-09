@@ -455,6 +455,14 @@ void Session::Checkpoint(System::String^ config) {
 		throw gcnew WiredTigerApiException(r, "session->checkpoint");
 }
 
+void Session::Compact(System::String^ name, System::String^ config) {
+	std::string nameStr(str_or_empty(name));
+	std::string configStr(str_or_empty(config));
+	int r = session_->compact(session_, nameStr.c_str(), configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->compact");
+}
+
 void Session::Create(System::String^ name, System::String^ config) {
 	std::string nameStr(str_or_die(name, "name"));
 	std::string configStr(str_or_empty(config));
