@@ -162,6 +162,10 @@ namespace WiredTigerNet {
 		void Checkpoint(System::String^ config);
 		void Compact(System::String^ name, System::String^ config);
 		void Create(System::String^ name, System::String^ config);
+		void Drop(System::String^ name, System::String^ config);
+		void Rename(System::String^ oldName, System::String^ newName, System::String^ config);
+		void Upgrade(System::String^ name, System::String^ config);
+		void Verify(System::String^ name, System::String^ config);
 		Cursor^ OpenCursor(System::String^ name);
 		Cursor^ OpenCursor(System::String^ name, System::String^ config);
 	protected:
