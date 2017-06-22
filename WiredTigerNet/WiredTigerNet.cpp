@@ -471,6 +471,39 @@ void Session::Create(System::String^ name, System::String^ config) {
 		throw gcnew WiredTigerApiException(r, "session->create");
 }
 
+void Session::Drop(System::String^ name, System::String^ config) {
+	std::string nameStr(str_or_die(name, "name"));
+	std::string configStr(str_or_empty(config));
+	int r = session_->drop(session_, nameStr.c_str(), configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->drop");
+}
+
+void Session::Rename(System::String^ oldName, System::String^ newName, System::String^ config) {
+	std::string oldNameStr(str_or_die(oldName, "oldName"));
+	std::string newNameStr(str_or_die(newName, "newName"));
+	std::string configStr(str_or_empty(config));
+	int r = session_->rename(session_, oldNameStr.c_str(), newNameStr.c_str(), configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->rename");
+}
+
+void Session::Upgrade(System::String^ name, System::String^ config) {
+	std::string nameStr(str_or_die(name, "name"));
+	std::string configStr(str_or_empty(config));
+	int r = session_->upgrade(session_, nameStr.c_str(), configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->upgrade");
+}
+
+void Session::Verify(System::String^ name, System::String^ config) {
+	std::string nameStr(str_or_die(name, "name"));
+	std::string configStr(str_or_empty(config));
+	int r = session_->verify(session_, nameStr.c_str(), configStr.c_str());
+	if (r != 0)
+		throw gcnew WiredTigerApiException(r, "session->verify");
+}
+
 Cursor^ Session::OpenCursor(System::String^ name) {
 	std::string nameStr(str_or_die(name, "name"));
 	NativeCursor* nativeCursor;
