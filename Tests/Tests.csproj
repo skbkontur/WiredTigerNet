@@ -34,9 +34,6 @@
       <HintPath>..\lib\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="WiredTigerNet">
-      <HintPath>..\bin\WiredTigerNet.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BasicTest.cs" />
@@ -45,6 +42,12 @@
     <Compile Include="RangesTest.cs" />
     <Compile Include="TestHelpers.cs" />
     <Compile Include="LoggingEventHandler.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WiredTigerNet\WiredTigerNet.vcxproj">
+      <Project>{a80d8bf2-01b5-4b3d-aa35-c372b8cc7899}</Project>
+      <Name>WiredTigerNet</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
