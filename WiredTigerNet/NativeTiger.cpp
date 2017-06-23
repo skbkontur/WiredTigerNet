@@ -206,6 +206,11 @@ NativeCursor* OpenNativeCursor(WT_SESSION* session, const char* name, const char
 	WT_CURSOR* cursor;
 	int r = session->open_cursor(session, name, nullptr, config, &cursor);
 	if (r != 0)
-		throw NativeWiredTigerApiException(r, "session->open_cursor");
+	{
+		std::string fullApiName = "session->open_cursor";
+		fullApiName.append(", ");
+		fullApiName.append(name);
+		throw NativeWiredTigerApiException(r, fullApiName);
+	}
 	return new NativeCursor(cursor);
 }

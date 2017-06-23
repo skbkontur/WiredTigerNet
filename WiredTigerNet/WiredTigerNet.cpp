@@ -460,7 +460,7 @@ void Session::Compact(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->compact(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->compact");
+		throw gcnew WiredTigerApiException(r, "session->compact" + ", " + name);
 }
 
 void Session::Create(System::String^ name, System::String^ config) {
@@ -468,7 +468,7 @@ void Session::Create(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->create(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->create");
+		throw gcnew WiredTigerApiException(r, "session->create" + ", " + name);
 }
 
 void Session::Drop(System::String^ name, System::String^ config) {
@@ -476,7 +476,7 @@ void Session::Drop(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->drop(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->drop");
+		throw gcnew WiredTigerApiException(r, "session->drop" + ", " + name);
 }
 
 void Session::Rename(System::String^ oldName, System::String^ newName, System::String^ config) {
@@ -485,7 +485,7 @@ void Session::Rename(System::String^ oldName, System::String^ newName, System::S
 	std::string configStr(str_or_empty(config));
 	int r = session_->rename(session_, oldNameStr.c_str(), newNameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->rename");
+		throw gcnew WiredTigerApiException(r, "session->rename" + ", " + oldName + "->" + newName);
 }
 
 void Session::Upgrade(System::String^ name, System::String^ config) {
@@ -493,7 +493,7 @@ void Session::Upgrade(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->upgrade(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->upgrade");
+		throw gcnew WiredTigerApiException(r, "session->upgrade" + ", " + name);
 }
 
 void Session::Verify(System::String^ name, System::String^ config) {
@@ -501,7 +501,7 @@ void Session::Verify(System::String^ name, System::String^ config) {
 	std::string configStr(str_or_empty(config));
 	int r = session_->verify(session_, nameStr.c_str(), configStr.c_str());
 	if (r != 0)
-		throw gcnew WiredTigerApiException(r, "session->verify");
+		throw gcnew WiredTigerApiException(r, "session->verify" + ", " + name);
 }
 
 Cursor^ Session::OpenCursor(System::String^ name) {
