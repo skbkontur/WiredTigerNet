@@ -360,7 +360,7 @@ bool Cursor::SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::Out
 	})
 }
 
-long Cursor::GetTotalCount(Range range) {
+__int64 Cursor::GetTotalCount(Range range) {
 	RANGE_UNWRAP()
 
 	INVOKE_NATIVE(return cursor_->GetTotalCount(leftPtr, leftSize, range.Left.HasValue && range.Left.Value.Inclusive,
