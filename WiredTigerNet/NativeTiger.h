@@ -25,7 +25,7 @@ public:
 	~NativeCursor();
 	bool IterationBegin(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, NativeDirection newDirection, bool copyBoundary);
 	bool IterationMove();
-	long GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
+	__int64 GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
 	int Reset();
 	const char* KeyFormat() const { return cursor_->key_format; }
 	const char* ValueFormat() const { return cursor_->value_format; }

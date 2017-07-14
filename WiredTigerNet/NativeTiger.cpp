@@ -6,7 +6,7 @@ inline int min(int a, int b) {
 }
 
 NativeCursor::NativeCursor(WT_CURSOR* cursor) :
-	cursor_(cursor), 
+	cursor_(cursor),
 	boundary_(nullptr),
 	keyIsString_(strcmp(cursor_->key_format, "S") == 0) {
 }
@@ -122,8 +122,8 @@ NativeCursor::~NativeCursor() {
 	}
 }
 
-long NativeCursor::GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
-	long result = 0;
+__int64 NativeCursor::GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive) {
+	__int64 result = 0;
 	if (IterationBegin(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending, false))
 		do
 		{
