@@ -335,13 +335,13 @@ namespace Tests
 				var exception =
 					Assert.Throws<WiredTigerApiException>(() => session.OpenCursor("table:test", "checkpoint=inexistent"));
 				Assert.That(exception.Message, Is.StringContaining("error code [2]"));
-				Assert.That(exception.Message, Is.StringContaining("api name [session->open_cursor]"));
+				Assert.That(exception.Message, Is.StringContaining("api name [session->open_cursor, table:test]"));
 
 				using (session.OpenCursor("backup:"))
 				{
 					exception = Assert.Throws<WiredTigerApiException>(() => session.OpenCursor("backup:"));
 					Assert.That(exception.Message, Is.StringContaining("error code [22]"));
-					Assert.That(exception.Message, Is.StringContaining("api name [session->open_cursor]"));
+					Assert.That(exception.Message, Is.StringContaining("api name [session->open_cursor, backup:]"));
 				}
 			}
 		}
