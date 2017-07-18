@@ -1,5 +1,7 @@
 # WiredTiger.NET
 
+[![Build status](https://ci.appveyor.com/api/projects/status/a7dugj6erbayrk12/branch/master?svg=true)](https://ci.appveyor.com/project/halex2005/wiredtigernet/branch/master)
+
 WiredTiger.NET is the C++/CLI wrapper for WiredTiger key-value engine.
 
 ## Dynamic CRT dependency
