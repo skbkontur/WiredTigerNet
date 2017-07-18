@@ -5,5 +5,5 @@ platform:
 configuration:
   - Release
 artifacts:
-  - path: bin\Release\WiredTigerNet.dll
-  - path: bin\Release\WiredTigerNet.pdb
+  - path: %APPVEYOR_BUILD_FOLDER%\bin\Release\WiredTigerNet.dll
+  - path: %APPVEYOR_BUILD_FOLDER%\bin\Release\WiredTigerNet.pdb
