@@ -11,6 +11,10 @@ We cannot compile WiredTiger.NET linked statically with CRT because of we use [C
 
 Therefore, if you have some issues with WiredTiger.NET, check you have installed [Visual C++ Redistributable Packages](https://www.microsoft.com/en-us/download/details.aspx?id=40784).
 
+## Downloads
+
+You can download latest binaries for master branch from [appveyor artifacts page](https://ci.appveyor.com/project/halex2005/wiredtigernet/branch/master/artifacts).
+
 ## Contribute
 
 Your Pull Requests are welcome!
