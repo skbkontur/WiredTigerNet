@@ -132,6 +132,18 @@ __int64 NativeCursor::GetTotalCount(Byte* left, int leftSize, bool leftInclusive
 	return result;
 }
 
+__int64 NativeCursor::GetTotalCountMax(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, __int64 maxCount) {
+	__int64 result = 0;
+	if (maxCount <= 0)
+		return 0;
+	if (IterationBegin(left, leftSize, leftInclusive, right, rightSize, rightInclusive, Ascending, false))
+		do
+		{
+			result++;
+		} while ((result < maxCount) && IterationMove());
+	return result;
+}
+
 bool NativeCursor::IterationMove() {
 	bool moved = direction_ == Ascending ? Next() : Prev();
 	return moved && Within();
