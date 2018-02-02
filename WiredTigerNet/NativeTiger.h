@@ -25,7 +25,7 @@ public:
 	~NativeCursor();
 	bool IterationBegin(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, NativeDirection newDirection, bool copyBoundary);
 	bool IterationMove();
-	__int64 GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive);
+	__int64 GetTotalCount(Byte* left, int leftSize, bool leftInclusive, Byte* right, int rightSize, bool rightInclusive, __int64 maxCount);
 	int Reset();
 	const char* KeyFormat() const { return cursor_->key_format; }
 	const char* ValueFormat() const { return cursor_->value_format; }
@@ -44,11 +44,11 @@ private:
 	NativeCursor(WT_CURSOR* cursor);
 	WT_CURSOR* cursor_;
 	bool keyIsString_;
-	NativeDirection direction_;	
+	NativeDirection direction_;
 	Byte* boundary_;
 	int boundarySize_;
 	bool boundaryInclusive_;
-	bool ownsBoundary_;	
+	bool ownsBoundary_;
 	bool Within();
 	void SetKey(Byte* data, int length);
 	void SetValue(Byte* data, int length);

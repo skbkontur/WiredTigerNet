@@ -138,6 +138,7 @@ namespace WiredTigerNet {
 		bool Search(array<Byte>^ key);
 		bool SearchNear(array<Byte>^ key, [System::Runtime::InteropServices::OutAttribute] int% result);
 		__int64 GetTotalCount(Range range);
+		__int64 GetTotalCount(Range range, __int64 maxCount);
 		array<Byte>^ GetKey();
 		array<Byte>^ GetValue();
 		bool IterationBegin(Range range, Direction direction);
