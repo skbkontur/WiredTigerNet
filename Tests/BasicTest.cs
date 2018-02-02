@@ -293,8 +293,8 @@ namespace Tests
 					Assert.That(cursor.GetTotalCount(Range.Segment("c".B(), "c".B())), Is.EqualTo(1));
 					Assert.That(cursor.GetTotalCount(Range.Segment("b".B(), "f".B())), Is.EqualTo(2));
 					Assert.That(cursor.GetTotalCount(Range.Line()), Is.EqualTo(3));
-					Assert.That(cursor.GetTotalCountMax(Range.Segment("d".B(), "d".B()), 5), Is.EqualTo(0));
-					Assert.That(cursor.GetTotalCountMax(Range.Segment("b".B(), "f".B()), 1), Is.EqualTo(1));
+					Assert.That(cursor.GetTotalCount(Range.Segment("d".B(), "d".B()), 5), Is.EqualTo(0));
+					Assert.That(cursor.GetTotalCount(Range.Segment("b".B(), "f".B()), 1), Is.EqualTo(1));
 				}
 			}
 		}
@@ -303,7 +303,7 @@ namespace Tests
 		[TestCase(2, 2)]
 		[TestCase(3, 3)]
 		[TestCase(4, 3)]
-		public void GetTotalCountMax(long maxCount, long expectedResult)
+		public void GetTotalCountWithUpperBound(long maxCount, long expectedResult)
 		{
 			using (var connection = Connection.Open(testDirectory, "create", null))
 			using (var session = connection.OpenSession())
@@ -319,7 +319,7 @@ namespace Tests
 
 				using (var cursor = session.OpenCursor("table:test"))
 				{
-					Assert.That(cursor.GetTotalCountMax(Range.Line(), maxCount), Is.EqualTo(expectedResult));
+					Assert.That(cursor.GetTotalCount(Range.Line(), maxCount), Is.EqualTo(expectedResult));
 				}
 			}
 		}
