@@ -533,8 +533,9 @@ static T to_pointer(System::Delegate^ d) {
 	return (T)System::Runtime::InteropServices::Marshal::GetFunctionPointerForDelegate(d).ToPointer();
 }
 
-Connection::Connection(IEventHandler^ eventHandler)
+Connection::Connection(System::String^ closeConfig, IEventHandler^ eventHandler)
 	:eventHandler_(eventHandler),
+	closeConfig_(closeConfig),
 	onErrorDelegate_(gcnew OnErrorDelegate(this, &Connection::OnError)),
 	onMessageDelegate_(gcnew OnMessageDelegate(this, &Connection::OnMessage)),
 	WiredTigerComponent(nullptr) {
@@ -554,7 +555,8 @@ Connection::Connection(IEventHandler^ eventHandler)
 void Connection::Close() {
 	if (connection_ != nullptr)
 	{
-		connection_->close(connection_, nullptr);
+		std::string configStr(str_or_empty(closeConfig_));
+		connection_->close(connection_, configStr.c_str());
 		connection_ = nullptr;
 	}
 	if (nativeEventHandler_ != nullptr) {
@@ -577,10 +579,15 @@ System::String^ Connection::GetHome() {
 }
 
 Connection^ Connection::Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler) {
+	return Open(home, config, nullptr, eventHandler);
+}
+
+Connection^ Connection::Open(System::String^ home, System::String^ config, System::String^ closeConfig, IEventHandler^ eventHandler)
+{
 	WT_CONNECTION *connectionp;
 	std::string homeStr(str_or_die(home, "home"));
 	std::string configStr(str_or_empty(config));
-	Connection^ ret = gcnew Connection(eventHandler);
+	Connection^ ret = gcnew Connection(closeConfig, eventHandler);
 	int r = wiredtiger_open(homeStr.c_str(), ret->nativeEventHandler_, configStr.c_str(), &connectionp);
 	if (r != 0)
 		throw gcnew WiredTigerApiException(r, "wiredtiger_open");

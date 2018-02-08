@@ -182,11 +182,12 @@ namespace WiredTigerNet {
 		Session^ OpenSession();
 		System::String^ GetHome();
 		static Connection^ Open(System::String^ home, System::String^ config, IEventHandler^ eventHandler);
+		static Connection^ Open(System::String^ home, System::String^ config, System::String^ closeConfig, IEventHandler^ eventHandler);
 	protected:
 		virtual void Close() override;
 	private:
 		WT_CONNECTION* connection_;
-		Connection(IEventHandler^ eventHandler);
+		Connection(System::String^ closeConfig, IEventHandler^ eventHandler);
 
 		[System::Runtime::InteropServices::UnmanagedFunctionPointer(System::Runtime::InteropServices::CallingConvention::Cdecl)]
 		delegate int OnErrorDelegate(WT_EVENT_HANDLER *handler, WT_SESSION *session, int error, const char* message);
@@ -200,5 +201,6 @@ namespace WiredTigerNet {
 
 		WT_EVENT_HANDLER* nativeEventHandler_;
 		IEventHandler^ eventHandler_;
+		System::String^ closeConfig_;
 	};
 }
